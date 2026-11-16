@@ -94,8 +94,11 @@ for (const sql of [
   "ALTER TABLE posts ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'", // approved | pending | removed
   "ALTER TABLE posts ADD COLUMN mod_reason TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE comments ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN email TEXT",
+  "ALTER TABLE users ADD COLUMN banner TEXT",
 ]) { try { db.exec(sql); } catch { /* column already exists */ } }
 db.exec("CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status)");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email COLLATE NOCASE) WHERE email IS NOT NULL");
 
 // Small transaction helper
 db.tx = (fn) => {

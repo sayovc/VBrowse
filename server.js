@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const mod = require('./moderation');
+const V = require('./public/textfilter.js'); // shared validation (handles, names, passwords, emails)
 
 const PORT = process.env.PORT || 3000;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
@@ -29,14 +30,16 @@ function checkPassword(pw, stored) {
   const test = crypto.scryptSync(pw, salt, 64);
   return crypto.timingSafeEqual(test, Buffer.from(hash, 'hex'));
 }
-function createSession(res, userId) {
+const SESSION_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+function createSession(req, res, userId) {
   const token = crypto.randomBytes(32).toString('hex');
   db.prepare('INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)').run(token, userId, now());
-  res.cookie('sid', token, { httpOnly: true, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 30 });
+  res.cookie('sid', token, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: SESSION_MS });
 }
 
 // ---------- app ----------
 const app = express();
+app.set('trust proxy', 1); // so req.secure works behind a hosting provider's HTTPS proxy
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
@@ -44,8 +47,8 @@ app.use(cookieParser());
 app.use((req, _res, next) => {
   const token = req.cookies.sid;
   if (token) {
-    req.user = db.prepare(`SELECT u.id, u.username, u.display_name, u.bio, u.avatar, u.is_admin, u.banned
-      FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`).get(token);
+    req.user = db.prepare(`SELECT u.id, u.username, u.display_name, u.email, u.bio, u.avatar, u.banner, u.is_admin, u.banned
+      FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.created_at > ?`).get(token, now() - SESSION_MS);
     if (req.user?.banned) req.user = undefined;
   }
   next();
@@ -56,6 +59,13 @@ const canSee = (post, user) => post.status === 'approved' || (user && (user.id =
 
 // Simple in-memory rate limiter
 const hits = new Map();
+// Forget old rate-limit and view records so memory doesn't grow forever
+setInterval(() => {
+  const t = now();
+  for (const [k, arr] of hits) { const keep = arr.filter((x) => t - x < 60 * 60 * 1000); keep.length ? hits.set(k, keep) : hits.delete(k); }
+  for (const [k, ts] of viewSeen) if (t - ts > 60 * 60 * 1000) viewSeen.delete(k);
+  db.prepare('DELETE FROM sessions WHERE created_at < ?').run(t - SESSION_MS);
+}, 10 * 60 * 1000).unref();
 function rateLimit(key, max, windowMs) {
   return (req, res, next) => {
     const id = `${key}:${req.user?.id || req.ip}`;
@@ -88,7 +98,7 @@ const removeUpload = (file) => { if (file) fs.unlink(path.join(UPLOAD_DIR, path.
 
 // ---------- serializers ----------
 function userPublic(u) {
-  return { id: u.id, username: u.username, displayName: u.display_name, avatar: u.avatar, bio: u.bio, isAdmin: !!u.is_admin };
+  return { id: u.id, username: u.username, displayName: u.display_name, avatar: u.avatar, banner: u.banner || null, bio: u.bio, isAdmin: !!u.is_admin };
 }
 
 const POST_SELECT = `
@@ -132,31 +142,41 @@ function parseTags(field, caption) {
 
 // ---------- auth routes ----------
 app.post('/api/signup', rateLimit('signup', 10, 60 * 60 * 1000), (req, res) => {
-  let { username, password, displayName } = req.body || {};
-  username = String(username || '').trim().toLowerCase();
-  displayName = String(displayName || '').trim() || username;
-  password = String(password || '');
-  if (!/^[a-z0-9_.]{3,20}$/.test(username)) return res.status(400).json({ error: 'Username must be 3–20 characters: letters, numbers, _ or .' });
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  if (displayName.length > 40) return res.status(400).json({ error: 'Display name is too long (max 40).' });
-  if (!mod.checkText(username).ok || !mod.checkText(displayName).ok) return res.status(400).json({ error: blockedMsg });
-  if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) return res.status(409).json({ error: 'That username is taken.' });
+  const handle = String(req.body?.username || '').trim().replace(/^@/, '').toLowerCase();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const displayName = V.cleanName(req.body?.displayName);
+  const password = String(req.body?.password || '');
+  const err = V.validateName(displayName) || V.validateEmail(email) || V.validateHandle(handle) || V.validatePassword(password, handle, email);
+  if (err) return res.status(400).json({ error: err });
+  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return res.status(409).json({ error: 'An account with that email already exists. Try signing in.' });
+  if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(handle)) return res.status(409).json({ error: `@${handle} is taken. Try another handle.` });
   // The very first account (the site owner) and anyone in ADMIN_USERNAMES become moderators.
-  const isAdmin = db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0 || ADMIN_USERNAMES.includes(username) ? 1 : 0;
-  const info = db.prepare('INSERT INTO users (username, display_name, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)')
-    .run(username, displayName, hashPassword(password), isAdmin, now());
-  createSession(res, info.lastInsertRowid);
-  res.json({ user: userPublic(db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid)) });
+  const isAdmin = db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0 || ADMIN_USERNAMES.includes(handle) ? 1 : 0;
+  const info = db.prepare('INSERT INTO users (username, display_name, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(handle, displayName, email, hashPassword(password), isAdmin, now());
+  createSession(req, res, info.lastInsertRowid);
+  res.json({ user: { ...userPublic(db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid)), email } });
+});
+
+// Live availability check for the signup / settings forms
+app.get('/api/handle-check', rateLimit('handlecheck', 120, 60 * 1000), (req, res) => {
+  const handle = String(req.query.h || '').trim().replace(/^@/, '').toLowerCase();
+  const err = V.validateHandle(handle);
+  if (err) return res.json({ ok: false, error: err });
+  const taken = db.prepare('SELECT id FROM users WHERE username = ?').get(handle);
+  if (taken && taken.id !== req.user?.id) return res.json({ ok: false, error: `@${handle} is taken.` });
+  res.json({ ok: true });
 });
 
 app.post('/api/login', rateLimit('login', 20, 15 * 60 * 1000), (req, res) => {
-  const username = String(req.body?.username || '').trim().toLowerCase();
+  const username = String(req.body?.username || '').trim().replace(/^@/, '').toLowerCase();
   const password = String(req.body?.password || '');
-  const u = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-  if (!u || !checkPassword(password, u.password_hash)) return res.status(401).json({ error: 'Wrong username or password.' });
+  // sign in with either handle or email
+  const u = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, username);
+  if (!u || !checkPassword(password, u.password_hash)) return res.status(401).json({ error: "That email/handle and password don't match. Try again." });
   if (u.banned) return res.status(403).json({ error: 'This account has been suspended for breaking the community rules.' });
-  createSession(res, u.id);
-  res.json({ user: userPublic(u) });
+  createSession(req, res, u.id);
+  res.json({ user: { ...userPublic(u), email: u.email } });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -165,22 +185,65 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/me', (req, res) => res.json({ user: req.user ? userPublic(req.user) : null, categories: CATEGORIES }));
+app.get('/api/me', (req, res) => res.json({ user: req.user ? { ...userPublic(req.user), email: req.user.email } : null, categories: CATEGORIES }));
 
-app.patch('/api/me', auth, upload.single('avatar'), async (req, res) => {
-  const displayName = req.body.displayName != null ? String(req.body.displayName).trim().slice(0, 40) : null;
-  const bio = req.body.bio != null ? String(req.body.bio).slice(0, 300) : null;
-  if (req.file && !IMAGE_TYPES.includes(req.file.mimetype)) { removeUpload(req.file.filename); return res.status(400).json({ error: 'Avatar must be an image.' }); }
-  if ((displayName && !mod.checkText(displayName).ok) || (bio && !mod.checkText(bio).ok)) { if (req.file) removeUpload(req.file.filename); return res.status(400).json({ error: blockedMsg }); }
-  if (req.file) {
-    const scan = await mod.scanMedia(req.file.path, 'image');
-    if (scan.verdict !== 'ok') { removeUpload(req.file.filename); return res.status(400).json({ error: 'That profile photo was blocked by our safety check. Please choose a different one.' }); }
-  }
+// Customize channel: name, handle, description, avatar, banner
+app.patch('/api/me', auth, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
+  const files = [req.files?.avatar?.[0], req.files?.banner?.[0]].filter(Boolean);
+  const bail = (status, error) => { files.forEach((f) => removeUpload(f.filename)); res.status(status).json({ error }); };
   const cur = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  if (req.file && cur.avatar) removeUpload(cur.avatar.replace('/uploads/', ''));
-  db.prepare('UPDATE users SET display_name = ?, bio = ?, avatar = ? WHERE id = ?').run(
-    displayName || cur.display_name, bio ?? cur.bio, req.file ? `/uploads/${req.file.filename}` : cur.avatar, req.user.id);
-  res.json({ user: userPublic(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)) });
+  const displayName = req.body.displayName != null ? V.cleanName(req.body.displayName) : cur.display_name;
+  const handle = req.body.username != null ? String(req.body.username).trim().replace(/^@/, '').toLowerCase() : cur.username;
+  const bio = req.body.bio != null ? String(req.body.bio).replace(/\r/g, '').trim().slice(0, 1000) : cur.bio;
+  const err = V.validateName(displayName) || (handle !== cur.username ? V.validateHandle(handle) : '');
+  if (err) return bail(400, err);
+  if (bio && !mod.checkText(bio).ok) return bail(400, blockedMsg);
+  if (handle !== cur.username && db.prepare('SELECT 1 FROM users WHERE username = ? AND id != ?').get(handle, cur.id)) return bail(409, `@${handle} is taken. Try another handle.`);
+  for (const f of files) {
+    if (!IMAGE_TYPES.includes(f.mimetype)) return bail(400, 'Profile pictures and banners must be JPG, PNG, GIF or WEBP images.');
+    const scan = await mod.scanMedia(f.path, 'image');
+    if (scan.verdict !== 'ok') return bail(400, 'That image was blocked by our safety check. Please choose a different one.');
+  }
+  const avatar = req.files?.avatar?.[0], banner = req.files?.banner?.[0];
+  const clear = (v) => v === '1' || v === 'true';
+  let newAvatar = cur.avatar, newBanner = cur.banner;
+  if (avatar || clear(req.body.removeAvatar)) { if (cur.avatar) removeUpload(cur.avatar.replace('/uploads/', '')); newAvatar = avatar ? `/uploads/${avatar.filename}` : null; }
+  if (banner || clear(req.body.removeBanner)) { if (cur.banner) removeUpload(cur.banner.replace('/uploads/', '')); newBanner = banner ? `/uploads/${banner.filename}` : null; }
+  db.prepare('UPDATE users SET display_name = ?, username = ?, bio = ?, avatar = ?, banner = ? WHERE id = ?')
+    .run(displayName, handle, bio, newAvatar, newBanner, cur.id);
+  res.json({ user: { ...userPublic(db.prepare('SELECT * FROM users WHERE id = ?').get(cur.id)), email: cur.email } });
+});
+
+// Account settings: change email or password (always asks for the current password)
+app.patch('/api/account', auth, rateLimit('account', 20, 15 * 60 * 1000), (req, res) => {
+  const cur = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!checkPassword(String(req.body?.currentPassword || ''), cur.password_hash)) return res.status(403).json({ error: 'Your current password is incorrect.' });
+  if (req.body?.email != null) {
+    const email = String(req.body.email).trim().toLowerCase();
+    const err = V.validateEmail(email); if (err) return res.status(400).json({ error: err });
+    if (db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, cur.id)) return res.status(409).json({ error: 'Another account already uses that email.' });
+    db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, cur.id);
+  }
+  if (req.body?.newPassword != null) {
+    const pw = String(req.body.newPassword);
+    const err = V.validatePassword(pw, cur.username, cur.email); if (err) return res.status(400).json({ error: err });
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(pw), cur.id);
+    // sign out every other device
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(cur.id, req.cookies.sid);
+  }
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(cur.id);
+  res.json({ user: { ...userPublic(u), email: u.email } });
+});
+
+// Delete account and everything it posted
+app.delete('/api/account', auth, (req, res) => {
+  const cur = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!checkPassword(String(req.body?.password || ''), cur.password_hash)) return res.status(403).json({ error: 'Your password is incorrect.' });
+  const media = db.prepare('SELECT media FROM posts WHERE user_id = ?').all(cur.id).map((p) => p.media);
+  db.prepare('DELETE FROM users WHERE id = ?').run(cur.id); // cascades to posts, comments, reactions, follows, sessions…
+  for (const m of [...media, cur.avatar && cur.avatar.replace('/uploads/', ''), cur.banner && cur.banner.replace('/uploads/', '')]) removeUpload(m);
+  res.clearCookie('sid');
+  res.json({ ok: true });
 });
 
 // ---------- posts ----------

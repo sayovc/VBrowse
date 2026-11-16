@@ -38,6 +38,7 @@ const now = () => Date.now();
 const newId = () => now() * 1000 + Math.floor(Math.random() * 1000); // numeric, unique enough, < 2^53
 const fail = (status, error) => { const e = new Error(error); e.status = status; throw e; };
 const checkText = (s) => window.VBTextFilter.checkText(s).ok;
+const V = window.VBTextFilter;
 const blobUrl = (id) => (id ? `/_blob/${id}` : null);
 const writeQueues = new Map();
 // One write at a time per document, as the store asks.
@@ -117,8 +118,8 @@ function commentHidden(c) {
 }
 function userPublic(id) {
   const p = profiles().get(id);
-  if (!p) return { id, username: 'unknown', displayName: 'Unknown', avatar: null, bio: '', isAdmin: false };
-  return { id, username: p.username, displayName: p.displayName || p.username, avatar: blobUrl(p.avatar), bio: p.bio || '', isAdmin: false };
+  if (!p) return { id, username: 'unknown', displayName: 'Unknown', avatar: null, banner: null, bio: '', isAdmin: false };
+  return { id, username: p.username, displayName: p.displayName || p.username, avatar: blobUrl(p.avatar), banner: blobUrl(p.banner), bio: p.bio || '', isAdmin: false };
 }
 function counts() {
   const likes = new Map(), dislikes = new Map(), views = new Map(), ccount = new Map(), clikes = new Map();
@@ -230,38 +231,67 @@ on('GET', '/api/me', () => ({
   hosted: { signedIn: !!uid, banned: !!(uid && isBanned(uid)), canWrite: !!uid && !writeRefused && canWrite !== false && !isBanned(uid), isOwner, hasProfile: !!(uid && profiles().get(uid)) },
 }));
 
+const handleTaken = (h) => { for (const [id, p] of profiles()) if (id !== uid && p.username === h) return true; return false; };
+on('GET', '/api/handle-check', (_p, q) => {
+  const h = String(q.get('h') || '').trim().replace(/^@/, '').toLowerCase();
+  const err = V.validateHandle(h);
+  if (err) return { ok: false, error: err };
+  return handleTaken(h) ? { ok: false, error: `@${h} is taken.` } : { ok: true };
+});
 on('POST', '/api/signup', async (_p, _q, body) => {
   requireMember();
-  const username = String(body.username || '').trim().toLowerCase();
-  const displayName = String(body.displayName || '').trim() || username;
-  if (!/^[a-z0-9_.]{3,20}$/.test(username)) fail(400, 'Username must be 3–20 characters: letters, numbers, _ or .');
-  if (displayName.length > 40) fail(400, 'Display name is too long (max 40).');
-  if (!checkText(username) || !checkText(displayName)) fail(400, blockedMsg);
-  for (const [id, p] of profiles()) if (id !== uid && p.username === username) fail(409, 'That username is taken.');
+  const username = String(body.username || '').trim().replace(/^@/, '').toLowerCase();
+  const displayName = V.cleanName(body.displayName);
+  const err = V.validateName(displayName) || V.validateHandle(username);
+  if (err) fail(400, err);
+  if (handleTaken(username)) fail(409, `@${username} is taken. Try another handle.`);
   const cur = myDoc('profiles');
-  await setMine('profiles', { ...cur, username, displayName, bio: cur.bio || '', avatar: cur.avatar || null, createdAt: cur.createdAt || now() });
+  await setMine('profiles', { ...cur, username, displayName, bio: cur.bio || '', avatar: cur.avatar || null, banner: cur.banner || null, createdAt: cur.createdAt || now() });
   return { user: me() };
 });
 on('POST', '/api/login', () => fail(400, 'No password needed: VBrowse uses your Claude account.'));
 on('POST', '/api/logout', () => ({ ok: true }));
 
+async function uploadChecked(file, what) {
+  if (!IMAGE_TYPES.includes(file.type)) fail(400, `${what} must be a JPG, PNG, GIF or WEBP image.`);
+  if (file.size > MAX_BYTES) fail(400, `${what} is too big (max 20 MB).`);
+  if ((await scanFile(file)) !== 'ok') fail(400, 'That image was blocked by our safety check. Please choose a different one.');
+  if (!assets) fail(403, "Uploading images isn't available for your account on this page.");
+  return (await assets.upload(file)).id;
+}
 on('PATCH', '/api/me', async (_p, _q, fd) => {
   requireProfile();
   const cur = clone(myDoc('profiles'));
-  const displayName = fd.get('displayName') != null ? String(fd.get('displayName')).trim().slice(0, 40) : cur.displayName;
-  const bio = fd.get('bio') != null ? String(fd.get('bio')).slice(0, 300) : cur.bio;
-  if (!checkText(displayName) || !checkText(bio)) fail(400, blockedMsg);
-  const file = fd.get('avatar');
-  if (file && file.size) {
-    if (!IMAGE_TYPES.includes(file.type)) fail(400, 'Profile photo must be a JPG, PNG, GIF or WEBP image.');
-    if (file.size > MAX_BYTES) fail(400, 'Profile photo is too big (max 20 MB).');
-    if ((await scanFile(file)) !== 'ok') fail(400, 'That profile photo was blocked by our safety check. Please choose a different one.');
-    if (!assets) fail(403, "Uploading photos isn't available for your account on this page.");
-    const up = await assets.upload(file);
-    cur.avatar = up.id;
-  }
-  await setMine('profiles', { ...cur, displayName: displayName || cur.username, bio });
+  const displayName = fd.get('displayName') != null ? V.cleanName(fd.get('displayName')) : cur.displayName;
+  const username = fd.get('username') != null ? String(fd.get('username')).trim().replace(/^@/, '').toLowerCase() : cur.username;
+  const bio = fd.get('bio') != null ? String(fd.get('bio')).replace(/\r/g, '').trim().slice(0, 1000) : cur.bio;
+  const err = V.validateName(displayName) || (username !== cur.username ? V.validateHandle(username) : '');
+  if (err) fail(400, err);
+  if (bio && !checkText(bio)) fail(400, blockedMsg);
+  if (username !== cur.username && handleTaken(username)) fail(409, `@${username} is taken. Try another handle.`);
+  const avatar = fd.get('avatar'), banner = fd.get('banner');
+  const old = [];
+  if (avatar && avatar.size) { old.push(cur.avatar); cur.avatar = await uploadChecked(avatar, 'Profile picture'); }
+  else if (fd.get('removeAvatar') === '1') { old.push(cur.avatar); cur.avatar = null; }
+  if (banner && banner.size) { old.push(cur.banner); cur.banner = await uploadChecked(banner, 'Banner'); }
+  else if (fd.get('removeBanner') === '1') { old.push(cur.banner); cur.banner = null; }
+  await setMine('profiles', { ...cur, displayName, username, bio });
+  if (assets) old.filter(Boolean).forEach((id) => assets.delete(id).catch(() => {}));
   return { user: me() };
+});
+on('PATCH', '/api/account', () => fail(400, 'Your email and password are managed by your Claude account.'));
+on('DELETE', '/api/account', async () => {
+  requireMember();
+  const mediaIds = Object.values(myDoc('posts').items || {}).map((p) => p.media).concat([myDoc('profiles').avatar, myDoc('profiles').banner]).filter(Boolean);
+  for (const col of USER_COLLECTIONS) {
+    if (!raw[col].has(uid)) continue;
+    raw[col].delete(uid);
+    await write(`${col}/${uid}`, () => db.doc(`${col}/${uid}`).delete());
+  }
+  mySaves = {};
+  await write(`data/users/${uid}/saves`, () => db.doc(`data/users/${uid}/saves`).delete());
+  if (assets) mediaIds.forEach((id) => assets.delete(id).catch(() => {}));
+  return { ok: true };
 });
 
 on('GET', '/api/posts', (_p, q) => {

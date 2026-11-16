@@ -7,16 +7,15 @@ const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const noCloseTag = (js, name) => { if (/<\/script/i.test(js)) throw new Error(`${name} contains </script>`); return js; };
 
 const index = read('public/index.html');
-const body = index.slice(index.indexOf('<body>') + 6, index.indexOf('<script src="/app.js">')).trim();
+const body = index.slice(index.indexOf('<body>') + 6, index.indexOf('<script src="/textfilter.js">')).trim();
 
 const html = `<title>VBrowse</title>
 <meta name="description" content="VBrowse (VibeBrowse): scroll, post, like, dislike, comment and follow.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 ${read('public/styles.css')}
-html, body { background: var(--bg); }
 </style>
 ${body}
 <script>

@@ -31,6 +31,55 @@ function checkText(s) {
 }
 
 
-  const api = { checkText, BLOCKED };
+  // ---------- handles (like YouTube @handles) ----------
+  const RESERVED = new Set(['admin', 'administrator', 'mod', 'moderator', 'moderation', 'support', 'help', 'staff', 'official',
+    'vbrowse', 'vibebrowse', 'api', 'uploads', 'settings', 'account', 'login', 'logout', 'signup', 'register', 'me', 'root',
+    'system', 'null', 'undefined', 'everyone', 'here', 'anonymous', 'deleted', 'unknown', 'owner', 'rules', 'home', 'scroll',
+    'following', 'saved', 'search', 'tag', 'tags']);
+  // Returns an error message, or '' when the handle is fine. Handles are stored lowercase.
+  function validateHandle(raw) {
+    const h = String(raw || '').trim().replace(/^@/, '').toLowerCase();
+    if (h.length < 3) return 'Your handle needs at least 3 characters.';
+    if (h.length > 30) return 'Your handle can be at most 30 characters.';
+    if (!/^[a-z0-9._-]+$/.test(h)) return 'Use only letters, numbers, periods (.), underscores (_) and hyphens (-). No spaces.';
+    if (!/^[a-z0-9]/.test(h)) return 'Your handle has to start with a letter or number.';
+    if (!/[a-z0-9]$/.test(h)) return 'Your handle has to end with a letter or number.';
+    if (/[._-]{2,}/.test(h)) return "Symbols can't be next to each other (like .. or __ or ._).";
+    if (!/[a-z]/.test(h)) return 'Your handle needs at least one letter.';
+    if (RESERVED.has(h)) return 'That handle is reserved. Try another one.';
+    if (!checkText(h)) return "That handle isn't allowed on VBrowse.";
+    return '';
+  }
+  // Display names: trimmed, single spaces, no invisible/control characters, must contain a letter or number.
+  function cleanName(raw) {
+    return String(raw || '').normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '')
+      .replace(/\s+/g, ' ').trim();
+  }
+  function validateName(raw) {
+    const n = cleanName(raw);
+    if (!n) return 'Enter a name.';
+    if (n.length > 50) return 'Your name can be at most 50 characters.';
+    if (!/[\p{L}\p{N}]/u.test(n)) return 'Your name needs at least one letter or number.';
+    if (!checkText(n)) return "That name isn't allowed on VBrowse.";
+    return '';
+  }
+  function validatePassword(pw, handle, email) {
+    pw = String(pw || '');
+    if (pw.length < 8) return 'Use 8 or more characters for your password.';
+    if (pw.length > 200) return 'That password is too long.';
+    if (!/[a-zA-Z]/.test(pw) || !/[0-9\W_]/.test(pw)) return 'Use a mix of letters and numbers or symbols.';
+    const low = pw.toLowerCase();
+    if ((handle && low.includes(String(handle).toLowerCase())) || (email && low === String(email).toLowerCase())) return "Your password can't contain your handle or email.";
+    return '';
+  }
+  const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+  function validateEmail(e) {
+    e = String(e || '').trim();
+    if (!e) return 'Enter your email address.';
+    if (e.length > 254 || !EMAIL_RE.test(e)) return 'Enter a valid email address, like name@example.com.';
+    return '';
+  }
+
+  const api = { checkText, BLOCKED, validateHandle, validateName, cleanName, validatePassword, validateEmail };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VBTextFilter = api;
 })(typeof self !== 'undefined' ? self : this);

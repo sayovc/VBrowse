@@ -14,7 +14,16 @@ There are two ways to run it:
 
 ## Features
 
-- **Accounts and profiles:** avatar, display name and bio, plus followers and following.
+- **Accounts like YouTube's:** sign up with name, email, @handle and password, and sign in with email or @handle.
+  - **Handles:** 3–30 characters, letters, numbers and single `. _ -` between them. No `...` or `___`, no leading or trailing symbols, at least one letter, and reserved names are blocked. The sign-up and settings forms check availability as you type.
+  - **Passwords:** 8+ characters mixing letters and numbers or symbols, and they can't contain your handle.
+  - **Sessions:** expire after 30 days, and changing your password signs out your other devices.
+- **Channel page:** banner, picture, name, @handle, description, followers and following.
+- **Settings:**
+  - *Channel:* banner, picture, name, handle, description.
+  - *Account:* change email or password, or delete the account and everything it posted.
+  - *Appearance:* device theme, light or dark, and whether Scroll plays sound.
+- **Light and dark mode:** follows the device by default, with a quick toggle in the top bar.
 - **Posting:** videos, photos and text posts with a caption, category, tags and hashtags. People can edit or delete their own posts.
 - **Home grid** (like YouTube): infinite scroll; videos preview on hover.
 - **Scroll view** (like TikTok or Reels): full-screen vertical swipe, autoplay, tap to pause, double-tap to like, mute, and a Follow pill on the creator's picture.
@@ -27,7 +36,7 @@ There are two ways to run it:
 - **Automatic nudity detection** on every photo and video ([nsfwjs](https://github.com/infinitered/nsfwjs) running locally, with no outside service). Videos are checked at 8 frames. Clear nudity or sexual content is **rejected**. Borderline content is **held for review**, so only its creator can see it until a moderator approves it. If the scanner is unavailable, uploads are held rather than published.
 - **Word filter** on captions, tags, comments, usernames, names and bios. It covers explicit terms and slurs, catches l33t spellings and spaced-out letters like `p o r n`, and avoids false hits like "grapes" or "cocktail". The list is in `public/textfilter.js`.
 - **Reports:** anyone can report a post or comment (nudity, violence, hate, harassment, spam or other). A post is hidden after 3 reports, or after 2 nudity reports.
-- **Moderation page** (🛡️ in the account menu): approve or remove posts, keep or remove comments, and ban accounts. On your own server, the **first account created** is the moderator; add more with `ADMIN_USERNAMES=alice,bob`. On the hosted version, the Artifact's owner is the moderator.
+- **Moderation page** (in the account menu): approve or remove posts, keep or remove comments, and ban accounts. On your own server, the **first account created** is the moderator; add more with `ADMIN_USERNAMES=alice,bob`. On the hosted version, the Artifact's owner is the moderator.
 - Profile photos must pass the scan too.
 
 Automatic detection is good but not perfect, which is why reports and the review queue exist.
