@@ -41,6 +41,19 @@ There are two ways to run it:
 
 Automatic detection is good but not perfect, which is why reports and the review queue exist.
 
+## Put it online (Render)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sayovc/vbrowse)
+
+1. Tap the button and sign in to Render with GitHub. Let Render access the `vbrowse` repository.
+2. When asked for `ADMIN_USERNAMES`, type the @handle you will sign up with (without the @). That account becomes the moderator.
+3. Add a payment method and apply. The `render.yaml` blueprint uses the Starter plan plus a 10 GB disk, so videos, photos and the database survive restarts (roughly $7 + $2.50 a month).
+4. After about 5–10 minutes the site is live at `https://vbrowse-….onrender.com`. Sign up with the handle from step 2 first.
+
+Every push to `main` redeploys automatically. Under Settings → Custom Domains you can add your own domain.
+
+The image is built from the `Dockerfile` (Node 22 + ffmpeg). Any host that runs Docker with a persistent volume mounted at `/data` works the same way.
+
 ## Run on your own server
 
 ```bash
@@ -59,7 +72,7 @@ Then open http://localhost:3000. The first account you create becomes the modera
 | `REPORT_THRESHOLD` | `3` | reports that hide a post |
 | `NSFW_REJECT` / `NSFW_REVIEW` / `NSFW_REVIEW_SEXY` | `0.5` / `0.2` / `0.7` | detector thresholds |
 
-Needs `ffmpeg`/`ffprobe` installed for video scanning; without them, videos are held for review. To deploy, use a host with a **persistent disk** (Render, Railway, Fly.io with a volume, or a VPS). Point `DB_PATH` and `UPLOAD_DIR` at that disk.
+Needs `ffmpeg`/`ffprobe` installed for video scanning; without them, videos are held for review. The Docker image includes them.
 
 ## Hosted build
 

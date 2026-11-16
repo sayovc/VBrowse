@@ -1,0 +1,14 @@
+# One-click setup for Render (https://render.com). Used by the "Deploy to Render" button in the README.
+services:
+  - type: web
+    name: vbrowse
+    runtime: docker
+    plan: starter            # a paid plan is needed for the persistent disk below
+    healthCheckPath: /api/me
+    envVars:
+      - key: ADMIN_USERNAMES  # your @handle (without the @): that account becomes a moderator
+        sync: false
+    disk:
+      name: vbrowse-data      # keeps the database and uploaded videos/photos across restarts
+      mountPath: /data
+      sizeGB: 10
