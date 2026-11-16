@@ -176,8 +176,13 @@ function loadScript(src) {
 function loadModel() {
   if (!modelPromise) {
     modelPromise = (async () => {
-      if (!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
-      if (!window.nsfwjs) await loadScript('https://cdn.jsdelivr.net/npm/nsfwjs@4.4.0/dist/browser/nsfwjs.min.js');
+      // The nsfwjs browser bundle includes TensorFlow.js. Its model files are separate scripts that
+      // must be loaded first (they register globals the bundle picks up), as nsfwjs's docs describe.
+      const base = 'https://cdn.jsdelivr.net/npm/nsfwjs@4.4.0/dist';
+      if (!window.nsfwjs) {
+        for (const f of ['model.min.js', 'group1-shard1of2.min.js', 'group1-shard2of2.min.js']) await loadScript(`${base}/models/mobilenet_v2_mid/${f}`);
+        await loadScript(`${base}/browser/nsfwjs.min.js`);
+      }
       return window.nsfwjs.load('MobileNetV2Mid');
     })().catch((e) => { modelPromise = null; throw e; });
   }

@@ -5,3 +5,5 @@ uploads/*
 *.db-*
 .git
 hosted/dist
+cloudflare
+hosted

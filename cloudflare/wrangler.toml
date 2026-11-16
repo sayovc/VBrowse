@@ -1,0 +1,32 @@
+# VBrowse on Cloudflare Workers (free plan). Deploy: see README "Put it online for free (Cloudflare)".
+name = "vbrowse"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+# The site's HTML/CSS/JS; /api/* and /media/* go to the Worker first
+[assets]
+directory = "../public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/media/*"]
+
+# Database (Cloudflare D1, SQLite)
+[[d1_databases]]
+binding = "DB"
+database_name = "vbrowse"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "migrations"
+
+# Uploaded videos and photos (Workers KV; free tier: 1 GB, files up to 25 MB)
+[[kv_namespaces]]
+binding = "MEDIA"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+ADMIN_USERNAMES = ""
+
+# Daily cleanup of expired sign-in sessions
+[triggers]
+crons = ["17 4 * * *"]
+
+[observability]
+enabled = true

@@ -8,6 +8,7 @@ const state = {
   categories: [],
   filters: { sort: 'trending', kind: '', category: '', q: '', tag: '' },
   hosted: null, // set when running as a Claude-hosted page (see hosted/backend.js)
+  limits: null, // what the server supports: { maxUploadMB, clientScan, accept }
   posts: new Map(), // id -> post (cache, used to sync UI everywhere)
 };
 const $app = document.getElementById('app');
@@ -406,6 +407,10 @@ function openAuth(mode = 'login', reason = '') {
   });
 }
 
+const uploadLimitMB = () => (state.limits && state.limits.maxUploadMB) || (HOSTED ? 20 : 200);
+// When the server can't run the nudity model (Cloudflare free plan), the browser scans the file first
+const needsClientScan = () => !HOSTED && !!(state.limits && state.limits.clientScan) && !!window.VBScan;
+
 function openUpload() {
   if (!requireLogin('Sign up to post videos and photos.')) return;
   const cats = state.categories.map((c) => `<option value="${c}">${c[0].toUpperCase() + c.slice(1)}</option>`).join('');
@@ -418,7 +423,7 @@ function openUpload() {
           <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="Choose a file">
             ${ICON.upload}
             <b style="color:var(--text)">Drag a video or photo here</b>
-            <span class="hint">${HOSTED ? 'MP4, WEBM, JPG, PNG, GIF, WEBP · up to 20 MB' : 'MP4, WEBM, MOV, JPG, PNG, GIF, WEBP · up to 200 MB'}</span>
+            <span class="hint">${HOSTED ? 'MP4, WEBM' : 'MP4, WEBM, MOV'}, JPG, PNG, GIF, WEBP · up to ${uploadLimitMB()} MB</span>
             <span class="btn small primary">Choose a file</span>
             <span class="hint">or skip this for a text post</span>
           </div>
@@ -444,7 +449,7 @@ function openUpload() {
   const setFile = (f) => {
     if (!f) return;
     if (!/^(video|image)\//.test(f.type)) { m.querySelector('#upErr').textContent = 'That file type is not supported.'; return; }
-    const maxMb = HOSTED ? 20 : 200;
+    const maxMb = uploadLimitMB();
     if (f.size > maxMb * 1024 * 1024) { m.querySelector('#upErr').textContent = `File is too big (max ${maxMb} MB).`; return; }
     file = f; m.querySelector('#upErr').textContent = '';
     const url = URL.createObjectURL(f);
@@ -461,7 +466,8 @@ function openUpload() {
   const cap = m.querySelector('#capIn');
   cap.oninput = () => { m.querySelector('#capCount').textContent = `${cap.value.length} / 2200`; };
 
-  m.querySelector('#upForm').addEventListener('submit', (e) => {
+  if (needsClientScan()) window.VBScan.preload(); // start loading the safety model while they type
+  m.querySelector('#upForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     if (!file && !String(fd.get('caption')).trim()) { m.querySelector('#upErr').textContent = 'Add a video or photo, or write something.'; return; }
@@ -481,6 +487,17 @@ function openUpload() {
         .then(({ post }) => done(post))
         .catch((er) => { unbusy(); m.querySelector('#upErr').textContent = er.message; btn.disabled = false; btn.textContent = 'Post'; prog.classList.add('hidden'); });
       return;
+    }
+    if (file && needsClientScan()) {
+      btn.textContent = 'Running safety check…'; prog.firstElementChild.style.width = '10%';
+      const verdict = await window.VBScan.scanFile(file);
+      if (verdict === 'reject') {
+        unbusy(); btn.disabled = false; btn.textContent = 'Post'; prog.classList.add('hidden');
+        m.querySelector('#upErr').textContent = 'This upload was blocked: our safety check detected nudity or sexual content, which is not allowed on VBrowse.';
+        return;
+      }
+      fd.append('scan', verdict);
+      btn.textContent = 'Uploading…';
     }
     // XHR so we can show upload progress
     const xhr = new XMLHttpRequest();
@@ -1254,6 +1271,15 @@ function settingsChannel(body) {
     const fd = new FormData(form);
     const err = window.VBTextFilter && (window.VBTextFilter.validateName(fd.get('displayName')) || (fd.get('username') !== me.username && window.VBTextFilter.validateHandle(fd.get('username'))));
     if (err) { body.querySelector('#chanErr').textContent = err; return; }
+    if (needsClientScan()) {
+      for (const [field, flag] of [['avatar', 'scanAvatar'], ['banner', 'scanBanner']]) {
+        const f = fd.get(field);
+        if (!f?.size) continue;
+        const verdict = await window.VBScan.scanFile(f);
+        if (verdict !== 'ok') { body.querySelector('#chanErr').textContent = 'That image was blocked by our safety check. Please choose a different one.'; return; }
+        fd.set(flag, 'ok');
+      }
+    }
     if (!fd.get('avatar')?.size) fd.delete('avatar');
     if (!fd.get('banner')?.size) fd.delete('banner');
     if (rmAvatar) fd.set('removeAvatar', '1');
@@ -1458,7 +1484,7 @@ hydrateIcons();
 applyTheme(prefs.get('theme', 'system'));
 if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(prefs.get('theme', 'system')));
 (async () => {
-  try { const r = await api('/api/me'); state.me = r.user; state.categories = r.categories; state.hosted = r.hosted || null; } catch {}
+  try { const r = await api('/api/me'); state.me = r.user; state.categories = r.categories; state.hosted = r.hosted || null; state.limits = r.limits || null; } catch {}
   if (HOSTED) document.body.classList.add('hosted');
   renderTop();
   if (HOSTED && !state.me && state.hosted && state.hosted.canWrite && !state.hosted.hasProfile) setTimeout(() => openAuth('signup'), 400);

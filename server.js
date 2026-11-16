@@ -185,7 +185,8 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/me', (req, res) => res.json({ user: req.user ? { ...userPublic(req.user), email: req.user.email } : null, categories: CATEGORIES }));
+app.get('/api/me', (req, res) => res.json({ user: req.user ? { ...userPublic(req.user), email: req.user.email } : null, categories: CATEGORIES,
+  limits: { maxUploadMB: 200, clientScan: false } }));
 
 // Customize channel: name, handle, description, avatar, banner
 app.patch('/api/me', auth, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {

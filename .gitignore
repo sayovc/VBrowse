@@ -2,3 +2,5 @@ node_modules/
 uploads/*
 !uploads/.gitkeep
 vbrowse.db*
+cloudflare/node_modules/
+cloudflare/.wrangler/
