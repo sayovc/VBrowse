@@ -1,0 +1,68 @@
+# VBrowse (VibeBrowse)
+
+A video, photo and text social network. People sign up, post, scroll, like or dislike, comment and follow each other. It starts completely empty: everything on it comes from real users. Nudity and sexual content are blocked automatically.
+
+There are two ways to run it:
+
+| | **Hosted on Claude** (`hosted/`) | **Your own server** (`server.js`) |
+|---|---|---|
+| Where it runs | claude.ai, as an Artifact page. No server needed | Any Node 22.5+ host |
+| Sign-in | Claude accounts | Username and password |
+| Who can post | The owner, plus people the owner shares it with who are allowed to edit or contribute | Anyone who signs up |
+| Upload size | 20 MB per file | 200 MB per file |
+| Safety scan | In the uploader's browser | On the server |
+
+## Features
+
+- **Accounts and profiles:** avatar, display name and bio, plus followers and following.
+- **Posting:** videos, photos and text posts with a caption, category, tags and hashtags. People can edit or delete their own posts.
+- **Home grid** (like YouTube): infinite scroll; videos preview on hover.
+- **Scroll view** (like TikTok or Reels): full-screen vertical swipe, autoplay, tap to pause, double-tap to like, mute, and a Follow pill on the creator's picture.
+- **Filters:** sort by Trending, Latest, Top rated, Most viewed, Most discussed or Oldest. Filter by type and category. Search, `#hashtag` pages, a Following feed and Saved posts.
+- **Reactions:** like and dislike, one vote per person, which can be switched or removed, plus a like/dislike ratio bar.
+- **Comments:** threaded replies, comment likes, Top/Newest sort, `@mentions` and `#tags`.
+
+## Moderation (no NSFW)
+
+- **Automatic nudity detection** on every photo and video ([nsfwjs](https://github.com/infinitered/nsfwjs) running locally, with no outside service). Videos are checked at 8 frames. Clear nudity or sexual content is **rejected**. Borderline content is **held for review**, so only its creator can see it until a moderator approves it. If the scanner is unavailable, uploads are held rather than published.
+- **Word filter** on captions, tags, comments, usernames, names and bios. It covers explicit terms and slurs, catches l33t spellings and spaced-out letters like `p o r n`, and avoids false hits like "grapes" or "cocktail". The list is in `public/textfilter.js`.
+- **Reports:** anyone can report a post or comment (nudity, violence, hate, harassment, spam or other). A post is hidden after 3 reports, or after 2 nudity reports.
+- **Moderation page** (🛡️ in the account menu): approve or remove posts, keep or remove comments, and ban accounts. On your own server, the **first account created** is the moderator; add more with `ADMIN_USERNAMES=alice,bob`. On the hosted version, the Artifact's owner is the moderator.
+- Profile photos must pass the scan too.
+
+Automatic detection is good but not perfect, which is why reports and the review queue exist.
+
+## Run on your own server
+
+```bash
+npm install
+npm start
+```
+
+Then open http://localhost:3000. The first account you create becomes the moderator.
+
+| Env var | Default | |
+|---|---|---|
+| `PORT` | `3000` | |
+| `DB_PATH` | `./vbrowse.db` | SQLite database |
+| `UPLOAD_DIR` | `./uploads` | uploaded media |
+| `ADMIN_USERNAMES` | | extra moderators (comma separated) |
+| `REPORT_THRESHOLD` | `3` | reports that hide a post |
+| `NSFW_REJECT` / `NSFW_REVIEW` / `NSFW_REVIEW_SEXY` | `0.5` / `0.2` / `0.7` | detector thresholds |
+
+Needs `ffmpeg`/`ffprobe` installed for video scanning; without them, videos are held for review. To deploy, use a host with a **persistent disk** (Render, Railway, Fly.io with a volume, or a VPS). Point `DB_PATH` and `UPLOAD_DIR` at that disk.
+
+## Hosted build
+
+`node hosted/build.js` bundles `public/` and `hosted/backend.js` into `hosted/dist/vbrowse.html`, a single page that runs on Claude's Artifact runtime. It uses Claude's shared database, file storage and user identity in place of the Node server. Each person can only write their own data, and only the owner can moderate.
+
+## Project layout
+
+```
+server.js          Express API (auth, posts, reactions, comments, follows, reports, moderation)
+db.js              SQLite schema (Node's built-in node:sqlite)
+moderation.js      NSFW image/video scanner (nsfwjs + TensorFlow.js WASM + ffmpeg)
+public/            Shared frontend: index.html, app.js, styles.css, textfilter.js
+hosted/backend.js  Browser-side backend for the Claude-hosted build
+hosted/build.js    Bundles the hosted page
+```

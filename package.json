@@ -1,0 +1,23 @@
+{
+  "name": "vbrowse",
+  "version": "1.0.0",
+  "description": "VBrowse (VibeBrowse): a video/photo social network: sign up, post, scroll, like, dislike, comment, follow.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --no-warnings server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "buffer": "^6.0.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "nsfwjs": "^4.4.0",
+    "sharp": "^0.35.5"
+  }
+}

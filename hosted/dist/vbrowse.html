@@ -1,0 +1,2312 @@
+<title>VBrowse</title>
+<meta name="description" content="VBrowse (VibeBrowse): scroll, post, like, dislike, comment and follow.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0b10;
+  --bg-2: #14141c;
+  --bg-3: #1d1d28;
+  --line: #2a2a38;
+  --text: #f2f2f7;
+  --muted: #9a9aad;
+  --accent: #ff3d6e;
+  --accent-2: #7c5cff;
+  --like: #ff3d6e;
+  --dislike: #6aa8ff;
+  --ok: #3ad29f;
+  --radius: 14px;
+  --topbar: 60px;
+  --sidebar: 220px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.45 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+img, video { display: block; max-width: 100%; }
+.hidden { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: fixed; inset: 0 0 auto 0; height: var(--topbar); z-index: 50;
+  display: flex; align-items: center; gap: 16px; padding: 0 16px;
+  background: rgba(11, 11, 16, .85); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 22px; letter-spacing: -.5px; }
+.logo-mark {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; font-size: 13px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.search { flex: 1; min-width: 0; max-width: 560px; margin: 0 auto; display: flex; }
+.search input {
+  flex: 1; min-width: 0; height: 40px; padding: 0 16px; border-radius: 999px 0 0 999px;
+  background: var(--bg-2); border: 1px solid var(--line); border-right: 0; outline: none;
+}
+.search input:focus { border-color: var(--accent-2); }
+.search button {
+  width: 56px; border-radius: 0 999px 999px 0; background: var(--bg-3); border: 1px solid var(--line); color: var(--muted);
+  display: grid; place-items: center;
+}
+.top-actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; padding: 0 16px; border-radius: 999px; font-weight: 600; white-space: nowrap;
+  background: var(--bg-3); border: 1px solid var(--line); transition: transform .08s, background .15s;
+}
+.btn:hover { background: #262634; }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.btn.primary:hover { background: #ff5582; }
+.btn.ghost { background: transparent; }
+.btn.small { height: 32px; padding: 0 12px; font-size: 13px; }
+.btn.following { background: var(--bg-3); color: var(--muted); }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; }
+.icon-btn:hover { background: var(--bg-3); }
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; object-fit: cover;
+  display: grid; place-items: center; font-weight: 700; color: #fff; font-size: 14px; overflow: hidden;
+  text-transform: uppercase;
+}
+.avatar.lg { width: 96px; height: 96px; font-size: 38px; }
+.avatar.md { width: 44px; height: 44px; font-size: 17px; }
+.avatar.sm { width: 28px; height: 28px; font-size: 12px; }
+
+/* ---------- sidebar ---------- */
+.sidebar {
+  position: fixed; top: var(--topbar); left: 0; bottom: 0; width: var(--sidebar); z-index: 40;
+  padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line);
+}
+.sidebar a, .sidebar button {
+  display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-radius: 10px; font-weight: 600; color: var(--muted);
+  text-align: left;
+}
+.sidebar svg { width: 22px; height: 22px; fill: currentColor; flex: none; }
+.sidebar a:hover, .sidebar button:hover { background: var(--bg-2); color: var(--text); }
+.sidebar a.active { color: var(--text); background: var(--bg-2); }
+.sidebar a.active svg { fill: var(--accent); }
+.sidebar .nav-upload { margin-top: 10px; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.sidebar .nav-upload:hover { color: #fff; filter: brightness(1.1); background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+main { padding: calc(var(--topbar) + 16px) 24px 40px calc(var(--sidebar) + 24px); min-height: 100vh; outline: none; }
+main.fullbleed { padding: var(--topbar) 0 0 var(--sidebar); }
+
+/* ---------- filters ---------- */
+.filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.chip-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; height: 34px; padding: 0 14px; border-radius: 10px; font-weight: 600; font-size: 14px;
+  background: var(--bg-3); color: var(--text); border: 1px solid transparent; text-transform: capitalize;
+}
+.chip:hover { background: #2a2a38; }
+.chip.active { background: var(--text); color: var(--bg); }
+.chip.tag { background: transparent; border-color: var(--line); color: var(--muted); text-transform: none; }
+.chip.tag.active { background: var(--accent-2); color: #fff; border-color: transparent; }
+.filter-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.filter-head h1 { font-size: 22px; margin: 0 auto 0 0; letter-spacing: -.3px; }
+.select {
+  height: 36px; padding: 0 34px 0 12px; border-radius: 10px; background: var(--bg-3); border: 1px solid var(--line);
+  appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 15px, calc(100% - 12px) 15px; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.seg button { height: 30px; padding: 0 12px; border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.seg button.active { background: var(--bg-3); color: var(--text); }
+.active-filter { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.active-filter button { color: var(--accent); font-weight: 600; }
+
+/* ---------- grid ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px 16px; }
+.card { display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
+.thumb {
+  position: relative; aspect-ratio: 16 / 10; border-radius: var(--radius); overflow: hidden; background: var(--bg-2);
+}
+.thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+.card:hover .thumb img, .card:hover .thumb video { transform: scale(1.03); }
+.thumb .badge {
+  position: absolute; right: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  background: rgba(0,0,0,.75);
+}
+.thumb .kind-badge { left: 8px; right: auto; top: 8px; bottom: auto; text-transform: capitalize; }
+.thumb.text-thumb {
+  display: flex; align-items: center; justify-content: center; padding: 22px; text-align: center;
+  font-weight: 700; font-size: 18px; line-height: 1.3; color: #fff;
+}
+.thumb.text-thumb span { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { display: flex; gap: 12px; }
+.card-meta .info { min-width: 0; flex: 1; }
+.card-title { font-weight: 600; margin: 0 0 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.sub { color: var(--muted); font-size: 13px; }
+.sub a:hover { color: var(--text); }
+.card-stats { display: flex; gap: 12px; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.card-stats .liked { color: var(--like); }
+.card-stats .disliked { color: var(--dislike); }
+
+.empty { text-align: center; color: var(--muted); padding: 80px 20px; }
+.empty h2 { color: var(--text); margin: 0 0 6px; }
+.empty .btn { margin-top: 16px; }
+.loader { display: flex; justify-content: center; padding: 30px; }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton { background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- scroll (vertical feed) ---------- */
+.reel-wrap { position: relative; height: calc(100vh - var(--topbar)); height: calc(100dvh - var(--topbar)); }
+.reel-feed { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; overscroll-behavior: contain; }
+.reel-feed::-webkit-scrollbar { display: none; }
+.reel-top {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 8px; align-items: center;
+}
+.reel-top .seg { background: rgba(0,0,0,.45); backdrop-filter: blur(10px); border-color: rgba(255,255,255,.12); }
+.reel-top .select { background-color: rgba(0,0,0,.45); border-color: rgba(255,255,255,.12); height: 36px; }
+.reel {
+  height: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px;
+}
+.reel-stage {
+  position: relative; height: 100%; aspect-ratio: 9 / 16; max-width: calc(100vw - var(--sidebar) - 120px);
+  border-radius: 18px; overflow: hidden; background: #000; user-select: none;
+}
+.reel-stage video, .reel-stage img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.reel-stage.text-stage { display: flex; align-items: center; justify-content: center; padding: 34px; text-align: center; }
+.reel-stage.text-stage p { font-size: 26px; font-weight: 700; line-height: 1.3; margin: 0; word-break: break-word; }
+.reel-overlay {
+  position: absolute; inset: auto 0 0 0; padding: 60px 16px 16px; pointer-events: none;
+  background: linear-gradient(transparent, rgba(0,0,0,.8));
+}
+.reel-overlay * { pointer-events: auto; }
+.reel-author { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px; }
+.reel-caption { font-size: 14px; max-height: 4.4em; overflow: hidden; word-break: break-word; }
+.reel-caption.open { max-height: 40vh; overflow-y: auto; }
+.reel-more { color: var(--muted); font-weight: 600; font-size: 13px; }
+.reel-mute { position: absolute; top: 12px; right: 12px; z-index: 2; background: rgba(0,0,0,.5); color: #fff; }
+.reel-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.2); z-index: 3; }
+.reel-progress div { height: 100%; width: 0; background: #fff; }
+.paused-icon {
+  position: absolute; inset: 0; margin: auto; width: 76px; height: 76px; border-radius: 50%; background: rgba(0,0,0,.45);
+  display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.paused .paused-icon { opacity: 1; }
+.big-heart {
+  position: absolute; left: 50%; top: 50%; width: 110px; height: 110px; pointer-events: none; z-index: 4;
+  transform: translate(-50%, -50%) scale(0); fill: var(--like); filter: drop-shadow(0 6px 20px rgba(0,0,0,.4));
+  animation: pop .8s ease-out forwards;
+}
+@keyframes pop {
+  15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  30% { transform: translate(-50%, -50%) scale(.95); }
+  45% { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -110%) scale(1); opacity: 0; }
+}
+.rail { display: flex; flex-direction: column; align-items: center; gap: 12px; align-self: flex-end; padding-bottom: 0; }
+.rail-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
+.rail-btn .circle {
+  width: 50px; height: 50px; border-radius: 50%; background: var(--bg-3); display: grid; place-items: center; transition: transform .1s, background .15s;
+}
+.rail-btn:hover .circle { background: #2a2a38; }
+.rail-btn:active .circle { transform: scale(.88); }
+.rail-btn svg { width: 24px; height: 24px; fill: currentColor; }
+.rail-btn.on-like .circle { color: var(--like); }
+.rail-btn.on-dislike .circle { color: var(--dislike); }
+.rail-btn.on-save .circle { color: #ffc93c; }
+.rail-avatar { position: relative; margin-bottom: 10px; display: flex; flex-direction: column; align-items: center; }
+.rail-avatar .follow-pill {
+  position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); white-space: nowrap;
+  height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 20px;
+  background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.rail-avatar .follow-pill:hover { filter: brightness(1.1); }
+.rail-avatar .follow-pill.done { background: #fff; color: #111; }
+
+/* ---------- watch page ---------- */
+.watch { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px; max-width: 1500px; margin: 0 auto; }
+.player {
+  border-radius: var(--radius); overflow: hidden; background: #000; display: flex; justify-content: center; max-height: 72vh;
+}
+.player video, .player img { max-height: 72vh; width: 100%; object-fit: contain; }
+.player.text-player { padding: 60px 40px; font-size: 26px; font-weight: 700; text-align: center; line-height: 1.35; word-break: break-word; }
+.watch h1 { font-size: 20px; margin: 14px 0 10px; word-break: break-word; white-space: pre-wrap; }
+.watch-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.watch-row .grow { flex: 1; min-width: 0; }
+.author-line { display: flex; align-items: center; gap: 10px; }
+.author-line .name { font-weight: 700; }
+.pill-group { display: inline-flex; background: var(--bg-3); border-radius: 999px; overflow: hidden; }
+.pill-group button { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.pill-group button:hover { background: #2a2a38; }
+.pill-group button + button { border-left: 1px solid var(--line); }
+.pill-group svg { width: 20px; height: 20px; fill: currentColor; }
+.pill-group .on-like { color: var(--like); }
+.pill-group .on-dislike { color: var(--dislike); }
+.ratio { height: 3px; border-radius: 3px; background: var(--dislike); margin-top: 6px; overflow: hidden; width: 160px; }
+.ratio div { height: 100%; background: var(--like); }
+.desc-box { background: var(--bg-2); border-radius: var(--radius); padding: 12px 14px; margin-top: 14px; font-size: 14px; }
+.desc-box .sub { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.desc-text { white-space: pre-wrap; word-break: break-word; }
+.hashtag, .mention { color: #8fb4ff; font-weight: 500; }
+.hashtag:hover, .mention:hover { text-decoration: underline; }
+.side-list { display: flex; flex-direction: column; gap: 12px; }
+.mini { display: flex; gap: 10px; cursor: pointer; }
+.mini .thumb { width: 168px; flex: none; aspect-ratio: 16/10; border-radius: 10px; }
+.mini .thumb.text-thumb { font-size: 12px; padding: 8px; }
+.mini .card-title { font-size: 14px; }
+
+/* ---------- comments ---------- */
+.comments { margin-top: 22px; }
+.comments-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.comments-head h3 { margin: 0; font-size: 17px; }
+.comment-form { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 18px; }
+.comment-form .field { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.comment-form textarea {
+  width: 100%; resize: none; min-height: 40px; padding: 9px 12px; border-radius: 10px; background: var(--bg-2);
+  border: 1px solid var(--line); outline: none; overflow: hidden;
+}
+.comment-form textarea:focus { border-color: var(--accent-2); }
+.comment-form .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.comment { display: flex; gap: 10px; padding: 8px 0; }
+.comment .body { flex: 1; min-width: 0; }
+.comment .who { font-size: 13px; font-weight: 700; }
+.comment .who .sub { font-weight: 400; margin-left: 6px; }
+.comment .who .op { background: var(--bg-3); border-radius: 6px; padding: 0 6px; font-size: 11px; margin-left: 6px; color: var(--muted); }
+.comment .text { margin: 2px 0 4px; white-space: pre-wrap; word-break: break-word; font-size: 14px; }
+.comment .tools { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.comment .tools button { padding: 4px 8px; border-radius: 999px; font-weight: 600; display: inline-flex; gap: 5px; align-items: center; }
+.comment .tools button:hover { background: var(--bg-3); color: var(--text); }
+.comment .tools button.liked { color: var(--like); }
+.comment .tools svg { width: 15px; height: 15px; fill: currentColor; }
+.replies { margin-left: 46px; border-left: 2px solid var(--line); padding-left: 12px; }
+.replies-toggle { color: #8fb4ff; font-weight: 600; font-size: 13px; padding: 4px 0 4px 46px; }
+
+/* drawer (comments in scroll mode) */
+.drawer-back { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90; animation: fade .15s; }
+.drawer {
+  position: fixed; right: 0; top: 0; bottom: 0; width: min(440px, 100vw); z-index: 91; background: var(--bg-2);
+  border-left: 1px solid var(--line); display: flex; flex-direction: column; animation: slideIn .2s ease-out;
+}
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.drawer-head h3 { margin: 0; font-size: 16px; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 8px 16px; }
+.drawer-foot { border-top: 1px solid var(--line); padding: 12px 16px; }
+.drawer-foot .comment-form { margin: 0; }
+.drawer .comment-form textarea { background: var(--bg-3); }
+@keyframes slideIn { from { transform: translateX(100%); } }
+@keyframes fade { from { opacity: 0; } }
+
+/* ---------- profile ---------- */
+.profile-head { display: flex; gap: 28px; align-items: center; padding: 10px 0 24px; flex-wrap: wrap; }
+.profile-head .info { flex: 1; min-width: 240px; }
+.profile-head h1 { margin: 0; font-size: 26px; letter-spacing: -.4px; }
+.profile-head .handle { color: var(--muted); }
+.profile-stats { display: flex; gap: 22px; margin: 12px 0; }
+.profile-stats button, .profile-stats div { text-align: left; color: var(--muted); }
+.profile-stats b { color: var(--text); font-size: 17px; margin-right: 4px; }
+.profile-bio { white-space: pre-wrap; max-width: 600px; margin-bottom: 14px; word-break: break-word; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.tabs button { padding: 12px 18px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.active { color: var(--text); border-bottom-color: var(--text); }
+.user-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.user-row .grow { flex: 1; min-width: 0; }
+
+/* ---------- modals ---------- */
+.modal-back {
+  position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.65); display: grid; place-items: center; padding: 16px;
+  animation: fade .15s; overflow-y: auto;
+}
+.modal {
+  width: min(460px, 100%); background: var(--bg-2); border: 1px solid var(--line); border-radius: 18px; padding: 24px;
+  position: relative; animation: rise .2s ease-out;
+}
+.modal.wide { width: min(820px, 100%); }
+@keyframes rise { from { transform: translateY(14px); opacity: 0; } }
+.modal h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.3px; }
+.modal .lead { color: var(--muted); margin: 0 0 18px; }
+.modal .close { position: absolute; top: 12px; right: 12px; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.form input, .form textarea, .form select {
+  height: 44px; padding: 0 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); outline: none; font-weight: 400; color: var(--text);
+}
+.form textarea { height: auto; min-height: 90px; padding: 10px 14px; resize: vertical; }
+.form input:focus, .form textarea:focus, .form select:focus { border-color: var(--accent-2); }
+.form .error { color: #ff7a8e; font-size: 13px; min-height: 18px; margin: 0; }
+.form .switch { text-align: center; color: var(--muted); font-size: 14px; }
+.form .switch button { color: var(--accent); font-weight: 600; }
+.hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+.upload-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+.dropzone {
+  border: 2px dashed var(--line); border-radius: 14px; aspect-ratio: 9/14; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; text-align: center; color: var(--muted); padding: 16px; cursor: pointer; position: relative; overflow: hidden; background: var(--bg);
+}
+.dropzone.drag { border-color: var(--accent); background: rgba(255, 61, 110, .06); }
+.dropzone svg { width: 46px; height: 46px; fill: var(--muted); }
+.dropzone video, .dropzone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dropzone .remove { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(0,0,0,.7); color: #fff; }
+.progress { height: 6px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.progress div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .1s; }
+.counter { font-size: 12px; color: var(--muted); text-align: right; font-weight: 400; }
+
+.menu { position: relative; }
+.menu-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 6px; z-index: 60; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.menu-pop a, .menu-pop button { display: block; width: 100%; text-align: left; padding: 9px 12px; border-radius: 8px; font-size: 14px; }
+.menu-pop a:hover, .menu-pop button:hover { background: var(--bg-3); }
+.menu-pop .danger { color: #ff7a8e; }
+.menu-pop .me-line { padding: 8px 12px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+
+/* toasts */
+#toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast { background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 14px; animation: rise .2s; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+.toast.err { background: #ff4d6a; color: #fff; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1150px) {
+  .watch { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  :root { --sidebar: 76px; }
+  .sidebar span { display: none; }
+  .sidebar a, .sidebar button { justify-content: center; padding: 12px; }
+}
+@media (max-width: 640px) {
+  :root { --sidebar: 0px; --topbar: 56px; }
+  .topbar { gap: 10px; padding: 0 12px; }
+  .logo span:last-child { display: none; }
+  .top-actions .btn-upload-label { display: none; }
+  .sidebar {
+    top: auto; bottom: 0; right: 0; width: auto; height: calc(58px + env(safe-area-inset-bottom)); flex-direction: row; justify-content: space-around;
+    padding: 4px 6px env(safe-area-inset-bottom); border-right: 0; border-top: 1px solid var(--line); background: rgba(11,11,16,.95); backdrop-filter: blur(14px);
+  }
+  .sidebar .nav-upload { margin-top: 0; order: 2; }
+  .sidebar a[data-nav="following"] { order: 1; }
+  .sidebar a[data-nav="saved"] { order: 3; }
+  .sidebar a[data-nav="me"] { order: 4; }
+  main { padding: calc(var(--topbar) + 12px) 16px 90px; }
+  main.fullbleed { padding: var(--topbar) 0 calc(58px + env(safe-area-inset-bottom)) 0; }
+  .reel-wrap { height: calc(100dvh - var(--topbar) - 58px - env(safe-area-inset-bottom)); }
+  .reel { padding: 0; }
+  .reel-stage { max-width: 100vw; width: 100%; aspect-ratio: auto; border-radius: 0; }
+  .rail { position: absolute; right: 6px; bottom: 12px; z-index: 3; gap: 6px; padding: 0; }
+  .rail-btn { font-size: 11px; gap: 2px; }
+  .rail-btn .circle { background: rgba(0,0,0,.35); width: 42px; height: 42px; }
+  .rail-btn svg { width: 22px; height: 22px; }
+  .rail-avatar { margin-bottom: 12px; }
+  .top-actions [data-action="login"] { display: none; }
+  .top-actions .btn { height: 34px; padding: 0 12px; }
+  .search button { width: 44px; }
+  .search input { padding: 0 12px; }
+  .reel-top { left: 10px; right: 10px; transform: none; justify-content: space-between; }
+  .reel-top .seg button { padding: 0 9px; white-space: nowrap; }
+  .reel-top .select { width: 92px; }
+  .reel-mute { top: 58px; right: auto; left: 10px; }
+  .top-actions { flex: none; }
+  .rail-btn { text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .reel-overlay { padding-right: 76px; }
+  .grid { grid-template-columns: 1fr; }
+  .upload-grid { grid-template-columns: 1fr; }
+  .dropzone { aspect-ratio: 16/11; }
+  .mini .thumb { width: 140px; }
+  .profile-head { gap: 16px; }
+  .avatar.lg { width: 76px; height: 76px; font-size: 30px; }
+  .filter-head h1 { font-size: 19px; }
+}
+
+/* ---------- moderation ---------- */
+.review-badge { position: absolute; top: 8px; right: 8px; background: #f59f00; color: #111; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.review-banner { background: rgba(245, 159, 0, .12); border: 1px solid rgba(245, 159, 0, .4); color: #ffd27a; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
+.review-inline { color: #f59f00; font-size: 12px; margin-left: 6px; }
+.reel-report { color: var(--muted); font-size: 13px; }
+.reel-report:hover { color: var(--text); }
+.reasons { display: flex; flex-direction: column; gap: 6px; }
+.form label.reason { flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); font-weight: 500; font-size: 14px; cursor: pointer; }
+.form label.reason:has(input:checked) { border-color: var(--accent); background: rgba(255, 61, 110, .08); }
+.form label.reason input { height: auto; accent-color: var(--accent); }
+.mod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.mod-item { display: flex; gap: 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+.mod-media { width: 120px; flex: none; aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; background: #000; }
+.mod-media img, .mod-media video { width: 100%; height: 100%; object-fit: cover; }
+.mod-text { width: 100%; height: 100%; padding: 8px; font-size: 12px; font-weight: 700; overflow: hidden; }
+.mod-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mod-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+.danger-btn { background: #ff4d6a; border-color: transparent; color: #fff; }
+.danger-btn:hover { background: #ff6680; }
+.status-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg-3); }
+.status-pill.pending { background: #f59f00; color: #111; }
+.mod-comment { display: flex; gap: 12px; align-items: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.rules { max-width: 720px; }
+.rules h1 { letter-spacing: -.4px; }
+.rules li { margin-bottom: 10px; }
+.logo-accent { font-weight: 800; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* hosted build: sharing links point inside the sandboxed frame, so hide Share */
+body.hosted [data-share] { display: none !important; }
+
+html, body { background: var(--bg); }
+</style>
+<header class="topbar">
+    <a href="#/" class="logo" aria-label="VBrowse home"><span class="logo-mark">▶</span><span>V<b class="logo-accent">Browse</b></span></a>
+    <form class="search" id="searchForm" role="search">
+      <input id="searchInput" type="search" placeholder="Search posts, #tags, @people" autocomplete="off">
+      <button type="submit" aria-label="Search">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 4a6 6 0 104.47 10.03l4.75 4.75 1.41-1.41-4.75-4.75A6 6 0 0010 4zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
+      </button>
+    </form>
+    <div class="top-actions" id="topActions"></div>
+  </header>
+
+  <nav class="sidebar" id="sidebar">
+    <a href="#/" data-nav="home"><svg viewBox="0 0 24 24"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg><span>Home</span></a>
+    <a href="#/scroll" data-nav="scroll"><svg viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm3 6v8l6-4z"/></svg><span>Scroll</span></a>
+    <a href="#/following" data-nav="following"><svg viewBox="0 0 24 24"><path d="M9 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-7 1.7-7 4v2h14v-2c0-2.3-3.7-4-7-4zm8-4V7h-2v3h-3v2h3v3h2v-3h3v-2z"/></svg><span>Following</span></a>
+    <a href="#/saved" data-nav="saved"><svg viewBox="0 0 24 24"><path d="M6 2h12a1 1 0 011 1v19l-7-4-7 4V3a1 1 0 011-1z"/></svg><span>Saved</span></a>
+    <a href="#/me" data-nav="me"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4 0-9 2-9 5v3h18v-3c0-3-5-5-9-5z"/></svg><span>Profile</span></a>
+    <button class="nav-upload" data-action="upload"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg><span>Create</span></button>
+  </nav>
+
+  <main id="app" tabindex="-1"></main>
+  <div id="modalRoot"></div>
+  <div id="toasts" aria-live="polite"></div>
+<script>
+/* Shared word filter for VBrowse — used by the Node server and the hosted (browser) build. */
+(function (root) {
+// Explicit sexual terms and slurs. Matching ignores case, common l33t substitutions,
+// and separators like "p.o.r.n" or "p o r n".
+const BLOCKED = [
+  'porn', 'porno', 'pornhub', 'xvideos', 'xhamster', 'onlyfans', 'nudes', 'nude pics', 'send nudes', 'hentai', 'xxx',
+  'blowjob', 'handjob', 'rimjob', 'cumshot', 'creampie', 'gangbang', 'bukkake', 'deepthroat', 'milf', 'dildo', 'vibrator',
+  'pussy', 'cock', 'dick pic', 'tits', 'titties', 'boobs', 'cum', 'jizz', 'anal', 'orgasm', 'masturbat', 'jerk off', 'jack off',
+  'fingering', 'horny', 'nsfw', 'sex tape', 'sexting', 'camgirl', 'escort', 'stripper', 'nipple', 'erotic', 'fetish', 'bdsm',
+  'rape', 'molest', 'pedo', 'paedo', 'loli', 'cp ', 'child porn',
+  'nigger', 'nigga', 'faggot', 'fag', 'retard', 'tranny', 'chink', 'spic', 'kike', 'wetback', 'coon',
+];
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '@': 'a', '$': 's', '!': 'i', '+': 't' };
+function normalize(s) {
+  return String(s || '').toLowerCase().replace(/[013457@$!+]/g, (c) => LEET[c]);
+}
+const words = [...new Set(BLOCKED.map((w) => w.trim()))];
+// Short words must match exactly (so "cocktail", "analysis", "scum" are fine); longer ones match at a word start
+// (so "masturbat" catches "masturbating" but "grapes" is not "rape").
+const SHORT_EXACT = new Set(['cock', 'cum', 'anal', 'fag', 'tits', 'coon', 'spic', 'xxx', 'cp', 'milf', 'jizz', 'loli', 'rape', 'pedo', 'boobs']);
+const escapeRe = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const patterns = words.map((w) => new RegExp(SHORT_EXACT.has(w)
+  ? `(^|[^a-z])${escapeRe(w)}(s|d|ing)?($|[^a-z])`
+  : `(^|[^a-z])${escapeRe(w)}`));
+function checkText(s) {
+  const n = normalize(s);
+  // join spaced-out letters: "p o r n" / "p.o.r.n" / "p-o-r-n" -> "porn"
+  const joined = n.replace(/(?<=(?:^|[^a-z])[a-z])[\s.\-_*]+(?=[a-z](?:$|[^a-z]))/g, '');
+  for (const [i, re] of patterns.entries()) if (re.test(n) || re.test(joined)) return { ok: false, word: words[i] };
+  return { ok: true };
+}
+
+
+  const api = { checkText, BLOCKED };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VBTextFilter = api;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/* VBrowse hosted backend.
+ * Runs in the browser on top of the Claude Artifact runtime (db + assets + user) and answers the
+ * same /api/... calls the Node server does, so the frontend (app.js) is shared by both builds.
+ *
+ * Data layout (each person writes only their own document; the owner moderates):
+ *   profiles/<uid>   {username, displayName, bio, avatar, createdAt}
+ *   posts/<uid>      {items: {<postId>: post}}
+ *   comments/<uid>   {items: {<commentId>: comment}}
+ *   reactions/<uid>  {votes: {<postId>: 1|-1}}
+ *   follows/<uid>    {following: {<uid>: ts}}
+ *   clikes/<uid>     {liked: {<commentId>: 1}}
+ *   views/<uid>      {seen: {<postId>: 1}}
+ *   reports/<uid>    {posts: {<postId>: reason}, comments: {<commentId>: reason}}
+ *   mod/state        {banned, removed, approved, cleared, removedComments, keptComments}   (owner only)
+ *   data/users/<uid>/saves  {posts: {<postId>: ts}}   (private)
+ */
+(() => {
+'use strict';
+
+const CATEGORIES = ['comedy', 'music', 'gaming', 'sports', 'food', 'travel', 'art', 'tech', 'pets', 'fashion', 'education', 'other'];
+const REPORT_THRESHOLD = 3;
+const REPORT_REASONS = ['nudity', 'violence', 'hate', 'harassment', 'spam', 'other'];
+const MAX_BYTES = 20 * 1024 * 1024; // platform per-file limit
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const VIDEO_TYPES = ['video/mp4', 'video/webm'];
+const blockedMsg = 'That contains words that are not allowed on VBrowse. Please keep it friendly and safe for everyone.';
+const USER_COLLECTIONS = ['profiles', 'posts', 'comments', 'reactions', 'follows', 'clikes', 'views', 'reports'];
+
+let db = null, assets = null, user = null;
+let uid = null, isOwner = false, canWrite = null, writeRefused = false;
+const raw = Object.fromEntries(USER_COLLECTIONS.map((c) => [c, new Map()])); // collection -> uid -> body
+let mod = {};
+let mySaves = {};
+const listeners = new Set();
+
+// ---------- helpers ----------
+const now = () => Date.now();
+const newId = () => now() * 1000 + Math.floor(Math.random() * 1000); // numeric, unique enough, < 2^53
+const fail = (status, error) => { const e = new Error(error); e.status = status; throw e; };
+const checkText = (s) => window.VBTextFilter.checkText(s).ok;
+const blobUrl = (id) => (id ? `/_blob/${id}` : null);
+const writeQueues = new Map();
+// One write at a time per document, as the store asks.
+function write(path, fn) {
+  const prev = writeQueues.get(path) || Promise.resolve();
+  const next = prev.catch(() => {}).then(fn).catch((e) => {
+    if (e && e.code === 'invalid_argument' && !uid) fail(401, 'Sign in to Claude to take part.');
+    if (e && e.code === 'invalid_argument') { writeRefused = true; fail(403, "You can browse VBrowse, but the owner hasn't given you permission to post or react yet."); }
+    if (e && e.code === 'quota_exceeded') fail(507, 'VBrowse is out of storage space. Ask the owner to clean up old posts.');
+    if (e && e.status) throw e;
+    fail(500, (e && e.message) || 'Could not save. Try again.');
+  });
+  writeQueues.set(path, next);
+  return next;
+}
+const myDoc = (col) => raw[col].get(uid) || {};
+async function setMine(col, body) {
+  requireMember();
+  raw[col].set(uid, body); // optimistic
+  await write(`${col}/${uid}`, () => db.doc(`${col}/${uid}`).set(body));
+}
+const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+
+// ---------- derived views ----------
+function profiles() {
+  const out = new Map();
+  for (const [id, p] of raw.profiles) if (p && p.username) out.set(id, p);
+  return out;
+}
+const isBanned = (id) => !!(mod.banned && mod.banned[id]);
+function allPosts() {
+  const out = new Map();
+  for (const [author, body] of raw.posts) {
+    if (isBanned(author)) continue;
+    for (const [pid, p] of Object.entries((body && body.items) || {})) {
+      if (mod.removed && mod.removed[pid]) continue;
+      out.set(Number(pid), { ...p, id: Number(pid), authorId: author });
+    }
+  }
+  return out;
+}
+function allComments() {
+  const out = new Map();
+  for (const [author, body] of raw.comments) {
+    if (isBanned(author)) continue;
+    for (const [cid, c] of Object.entries((body && body.items) || {})) {
+      if (mod.removedComments && mod.removedComments[cid]) continue;
+      out.set(Number(cid), { ...c, id: Number(cid), authorId: author });
+    }
+  }
+  return out;
+}
+function reportsFor(kind, id) {
+  const reasons = {}; let n = 0;
+  for (const [reporter, body] of raw.reports) {
+    if (isBanned(reporter)) continue;
+    const r = body && body[kind] && body[kind][id];
+    if (r) { n++; reasons[r] = (reasons[r] || 0) + 1; }
+  }
+  return { n, reasons };
+}
+function postStatus(p) {
+  const id = String(p.id);
+  const rep = reportsFor('posts', id);
+  const cleared = (mod.cleared && mod.cleared[id]) || 0;
+  const fresh = rep.n - cleared;
+  if (fresh > 0 && (fresh >= REPORT_THRESHOLD || (rep.reasons.nudity || 0) - Math.min(cleared, rep.reasons.nudity || 0) >= 2)) {
+    return { status: 'pending', reason: 'Hidden after reports from the community' };
+  }
+  if (p.status === 'pending' && !(mod.approved && mod.approved[id])) return { status: 'pending', reason: p.modReason || 'Waiting for review' };
+  return { status: 'approved', reason: '' };
+}
+function commentHidden(c) {
+  const id = String(c.id);
+  const rep = reportsFor('comments', id);
+  return rep.n - ((mod.keptComments && mod.keptComments[id]) || 0) >= REPORT_THRESHOLD;
+}
+function userPublic(id) {
+  const p = profiles().get(id);
+  if (!p) return { id, username: 'unknown', displayName: 'Unknown', avatar: null, bio: '', isAdmin: false };
+  return { id, username: p.username, displayName: p.displayName || p.username, avatar: blobUrl(p.avatar), bio: p.bio || '', isAdmin: false };
+}
+function counts() {
+  const likes = new Map(), dislikes = new Map(), views = new Map(), ccount = new Map(), clikes = new Map();
+  for (const [voter, body] of raw.reactions) {
+    if (isBanned(voter)) continue;
+    for (const [pid, v] of Object.entries((body && body.votes) || {})) {
+      const m = v === 1 ? likes : v === -1 ? dislikes : null;
+      if (m) m.set(Number(pid), (m.get(Number(pid)) || 0) + 1);
+    }
+  }
+  for (const [, body] of raw.views) for (const pid of Object.keys((body && body.seen) || {})) views.set(Number(pid), (views.get(Number(pid)) || 0) + 1);
+  for (const c of allComments().values()) if (!commentHidden(c)) ccount.set(c.postId, (ccount.get(c.postId) || 0) + 1);
+  for (const [, body] of raw.clikes) for (const cid of Object.keys((body && body.liked) || {})) clikes.set(Number(cid), (clikes.get(Number(cid)) || 0) + 1);
+  return { likes, dislikes, views, ccount, clikes };
+}
+function isFollowing(a, b) { return !!(raw.follows.get(a) && raw.follows.get(a).following && raw.follows.get(a).following[b]); }
+function serializePost(p, C = counts()) {
+  const st = postStatus(p);
+  const author = userPublic(p.authorId);
+  return {
+    id: p.id, kind: p.kind, media: blobUrl(p.media), caption: p.caption || '', category: p.category || 'other',
+    tags: p.tags ? String(p.tags).split(',').filter(Boolean) : [], views: C.views.get(p.id) || 0, createdAt: p.createdAt,
+    status: st.status, modReason: st.reason, likes: C.likes.get(p.id) || 0, dislikes: C.dislikes.get(p.id) || 0,
+    comments: C.ccount.get(p.id) || 0, myReaction: (myDoc('reactions').votes || {})[p.id] || 0,
+    saved: !!(mySaves.posts && mySaves.posts[p.id]), followingAuthor: uid ? isFollowing(uid, p.authorId) : false,
+    author: { id: author.id, username: author.username, displayName: author.displayName, avatar: author.avatar },
+  };
+}
+const canSee = (p) => postStatus(p).status === 'approved' || (uid && (p.authorId === uid || isOwner));
+function visiblePost(id) {
+  const p = allPosts().get(Number(id));
+  if (!p || !canSee(p)) fail(404, 'Post not found.');
+  return p;
+}
+function me() { return uid && profiles().get(uid) && !isBanned(uid) ? { ...userPublic(uid), isAdmin: isOwner } : null; }
+function requireMember() {
+  if (!uid) fail(401, 'Sign in to Claude to take part.');
+  if (writeRefused) fail(403, "You can browse VBrowse, but the owner hasn't given you permission to post or react yet.");
+  if (isBanned(uid)) fail(403, 'This account has been suspended for breaking the community rules.');
+}
+function requireProfile() { requireMember(); if (!profiles().get(uid)) fail(401, 'Create your VBrowse profile first.'); }
+function parseTags(field, caption) {
+  const fromField = String(field || '').toLowerCase().split(/[\s,#]+/);
+  const fromCaption = (String(caption || '').toLowerCase().match(/#[a-z0-9_]{1,40}/g) || []).map((t) => t.slice(1));
+  const clean = [...fromField, ...fromCaption].map((t) => t.replace(/[^a-z0-9_]/g, '').slice(0, 40)).filter(Boolean);
+  return [...new Set(clean)].slice(0, 15).join(',');
+}
+
+// ---------- NSFW scanning in the browser ----------
+let modelPromise = null;
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load failed')); document.head.appendChild(s); });
+}
+function loadModel() {
+  if (!modelPromise) {
+    modelPromise = (async () => {
+      if (!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+      if (!window.nsfwjs) await loadScript('https://cdn.jsdelivr.net/npm/nsfwjs@4.4.0/dist/browser/nsfwjs.min.js');
+      return window.nsfwjs.load('MobileNetV2Mid');
+    })().catch((e) => { modelPromise = null; throw e; });
+  }
+  return modelPromise;
+}
+function decide(preds) {
+  const s = Object.fromEntries(preds.map((p) => [p.className, p.probability]));
+  const explicit = (s.Porn || 0) + (s.Hentai || 0), sexy = s.Sexy || 0;
+  return explicit >= 0.5 ? 'reject' : (explicit >= 0.2 || sexy >= 0.7) ? 'review' : 'ok';
+}
+const rank = { ok: 0, review: 1, reject: 2 };
+async function scanFile(file) {
+  try {
+    const model = await loadModel();
+    const url = URL.createObjectURL(file);
+    try {
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+        return decide(await model.classify(img));
+      }
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+      await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(() => rej(new Error('timeout')), 20000); });
+      const canvas = document.createElement('canvas'); canvas.width = 224; canvas.height = 224;
+      const ctx = canvas.getContext('2d');
+      const d = v.duration && isFinite(v.duration) ? v.duration : 1;
+      let worst = 'ok';
+      for (let i = 0; i < 8; i++) {
+        v.currentTime = (d * (i + 0.5)) / 8;
+        await new Promise((res) => { v.onseeked = res; setTimeout(res, 3000); });
+        ctx.drawImage(v, 0, 0, 224, 224);
+        const verdict = decide(await model.classify(canvas));
+        if (rank[verdict] > rank[worst]) worst = verdict;
+        if (worst === 'reject') break;
+      }
+      return worst;
+    } finally { URL.revokeObjectURL(url); }
+  } catch (e) {
+    console.warn('Safety scan unavailable:', e && e.message);
+    return 'unavailable'; // fail safe: held for review
+  }
+}
+
+// ---------- routes ----------
+const routes = [];
+const on = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
+
+on('GET', '/api/me', () => ({
+  user: me(), categories: CATEGORIES,
+  hosted: { signedIn: !!uid, banned: !!(uid && isBanned(uid)), canWrite: !!uid && !writeRefused && canWrite !== false && !isBanned(uid), isOwner, hasProfile: !!(uid && profiles().get(uid)) },
+}));
+
+on('POST', '/api/signup', async (_p, _q, body) => {
+  requireMember();
+  const username = String(body.username || '').trim().toLowerCase();
+  const displayName = String(body.displayName || '').trim() || username;
+  if (!/^[a-z0-9_.]{3,20}$/.test(username)) fail(400, 'Username must be 3–20 characters: letters, numbers, _ or .');
+  if (displayName.length > 40) fail(400, 'Display name is too long (max 40).');
+  if (!checkText(username) || !checkText(displayName)) fail(400, blockedMsg);
+  for (const [id, p] of profiles()) if (id !== uid && p.username === username) fail(409, 'That username is taken.');
+  const cur = myDoc('profiles');
+  await setMine('profiles', { ...cur, username, displayName, bio: cur.bio || '', avatar: cur.avatar || null, createdAt: cur.createdAt || now() });
+  return { user: me() };
+});
+on('POST', '/api/login', () => fail(400, 'No password needed: VBrowse uses your Claude account.'));
+on('POST', '/api/logout', () => ({ ok: true }));
+
+on('PATCH', '/api/me', async (_p, _q, fd) => {
+  requireProfile();
+  const cur = clone(myDoc('profiles'));
+  const displayName = fd.get('displayName') != null ? String(fd.get('displayName')).trim().slice(0, 40) : cur.displayName;
+  const bio = fd.get('bio') != null ? String(fd.get('bio')).slice(0, 300) : cur.bio;
+  if (!checkText(displayName) || !checkText(bio)) fail(400, blockedMsg);
+  const file = fd.get('avatar');
+  if (file && file.size) {
+    if (!IMAGE_TYPES.includes(file.type)) fail(400, 'Profile photo must be a JPG, PNG, GIF or WEBP image.');
+    if (file.size > MAX_BYTES) fail(400, 'Profile photo is too big (max 20 MB).');
+    if ((await scanFile(file)) !== 'ok') fail(400, 'That profile photo was blocked by our safety check. Please choose a different one.');
+    if (!assets) fail(403, "Uploading photos isn't available for your account on this page.");
+    const up = await assets.upload(file);
+    cur.avatar = up.id;
+  }
+  await setMine('profiles', { ...cur, displayName: displayName || cur.username, bio });
+  return { user: me() };
+});
+
+on('GET', '/api/posts', (_p, q) => {
+  const C = counts();
+  const sort = q.get('sort') || 'latest';
+  const kind = q.get('kind'), category = q.get('category'), search = (q.get('q') || '').toLowerCase();
+  const userQ = (q.get('user') || '').toLowerCase(), tag = (q.get('tag') || '').toLowerCase(), saved = q.get('saved') === '1';
+  const limit = Math.min(parseInt(q.get('limit'), 10) || 12, 50), offset = Math.max(parseInt(q.get('offset'), 10) || 0, 0);
+  const profs = profiles();
+  let list = [...allPosts().values()].filter((p) => {
+    const st = postStatus(p).status;
+    const author = profs.get(p.authorId);
+    const ownView = userQ && uid && author && author.username === userQ && p.authorId === uid;
+    if (!(st === 'approved' || (ownView && st === 'pending'))) return false;
+    if (['video', 'image', 'text'].includes(kind) && p.kind !== kind) return false;
+    if (CATEGORIES.includes(category) && p.category !== category) return false;
+    if (userQ && (!author || author.username !== userQ)) return false;
+    if (tag && !(`,${p.tags || ''},`).includes(`,${tag},`)) return false;
+    if (search && !`${p.caption} ${p.tags} ${author ? author.username + ' ' + author.displayName : ''}`.toLowerCase().includes(search)) return false;
+    if (saved && !(mySaves.posts && mySaves.posts[p.id])) return false;
+    if (sort === 'following' && !(uid && isFollowing(uid, p.authorId))) return false;
+    return true;
+  });
+  if (saved && !uid) fail(401, 'Log in to see saved posts.');
+  if (sort === 'following' && !me()) fail(401, 'Log in to see posts from people you follow.');
+  const L = (p) => C.likes.get(p.id) || 0, D = (p) => C.dislikes.get(p.id) || 0, V = (p) => C.views.get(p.id) || 0, K = (p) => C.ccount.get(p.id) || 0;
+  const t = now();
+  const trend = (p) => { const h = (t - p.createdAt) / 3600000 + 2; return ((L(p) - D(p)) + K(p) * 2 + V(p) * 0.05 + 1) / (h * Math.sqrt(h)); };
+  const sorters = {
+    latest: (a, b) => b.createdAt - a.createdAt, following: (a, b) => b.createdAt - a.createdAt, oldest: (a, b) => a.createdAt - b.createdAt,
+    top: (a, b) => (L(b) - D(b)) - (L(a) - D(a)) || L(b) - L(a) || b.createdAt - a.createdAt,
+    views: (a, b) => V(b) - V(a) || b.createdAt - a.createdAt, discussed: (a, b) => K(b) - K(a) || b.createdAt - a.createdAt,
+    trending: (a, b) => trend(b) - trend(a),
+  };
+  list.sort(sorters[sort] || sorters.latest);
+  const page = list.slice(offset, offset + limit);
+  return { posts: page.map((p) => serializePost(p, C)), nextOffset: offset + limit < list.length ? offset + limit : null };
+});
+
+on('GET', '/api/posts/:id', ({ id }) => ({ post: serializePost(visiblePost(id)) }));
+
+on('POST', '/api/posts', async (_p, _q, fd, opts = {}) => {
+  requireProfile();
+  const file = fd.get('media');
+  const caption = String(fd.get('caption') || '').trim().slice(0, 2200);
+  const category = CATEGORIES.includes(fd.get('category')) ? fd.get('category') : 'other';
+  const tags = parseTags(fd.get('tags'), caption);
+  let kind = 'text', media = null, status = 'approved', modReason = '';
+  if (!file && !caption) fail(400, 'Add a photo, video, or write something.');
+  if (!checkText(`${caption} ${tags}`)) fail(400, blockedMsg);
+  if (file) {
+    if (!IMAGE_TYPES.includes(file.type) && !VIDEO_TYPES.includes(file.type)) fail(400, 'Only JPG, PNG, GIF, WEBP images or MP4 / WEBM videos are allowed here.');
+    if (file.size > MAX_BYTES) fail(400, 'File is too big — the limit is 20 MB per upload.');
+    kind = VIDEO_TYPES.includes(file.type) ? 'video' : 'image';
+    opts.onStage?.('Running safety check…');
+    const verdict = await scanFile(file);
+    if (verdict === 'reject') fail(400, 'This upload was blocked: our safety check detected nudity or sexual content, which is not allowed on VBrowse.');
+    if (verdict === 'review') { status = 'pending'; modReason = 'Possibly sensitive content (auto-flagged)'; }
+    if (verdict === 'unavailable') { status = 'pending'; modReason = 'Automatic safety check unavailable'; }
+    if (!assets) fail(403, "Uploading photos and videos isn't available for your account on this page. You can still make text posts.");
+    opts.onStage?.('Uploading…');
+    try { media = (await assets.upload(file)).id; }
+    catch (e) {
+      const msg = { too_large: 'File is too big — the limit is 20 MB per upload.', unsupported_type: 'That file type is not supported.',
+        quota_or_state: 'VBrowse is out of storage space.', rate_limited: 'Too many uploads — wait a moment.' }[e && e.code];
+      fail(400, msg || 'Upload failed. Try again.');
+    }
+  }
+  if (isOwner && status === 'pending' && modReason.startsWith('Automatic')) { status = 'approved'; modReason = ''; } // owner's own posts skip the queue when the scanner is down
+  const pid = newId();
+  const body = clone(myDoc('posts'));
+  body.items = body.items || {};
+  body.items[pid] = { kind, media, caption, category, tags, status, modReason, createdAt: now() };
+  await setMine('posts', body);
+  return { post: serializePost({ ...body.items[pid], id: pid, authorId: uid }) };
+});
+
+on('PATCH', '/api/posts/:id', async ({ id }, _q, body) => {
+  requireProfile();
+  const mine = clone(myDoc('posts'));
+  const p = mine.items && mine.items[id];
+  if (!p) fail(403, 'You can only edit your own posts.');
+  const caption = body.caption != null ? String(body.caption).trim().slice(0, 2200) : p.caption;
+  if (!checkText(caption)) fail(400, blockedMsg);
+  p.caption = caption; p.tags = parseTags(p.tags, caption);
+  if (CATEGORIES.includes(body.category)) p.category = body.category;
+  await setMine('posts', mine);
+  return { post: serializePost({ ...p, id: Number(id), authorId: uid }) };
+});
+
+on('DELETE', '/api/posts/:id', async ({ id }) => {
+  requireMember();
+  const mine = clone(myDoc('posts'));
+  if (mine.items && mine.items[id]) {
+    const media = mine.items[id].media;
+    delete mine.items[id];
+    await setMine('posts', mine);
+    if (media && assets) assets.delete(media).catch(() => {});
+    return { ok: true };
+  }
+  if (isOwner) { await setMod((m) => { (m.removed = m.removed || {})[id] = true; }); return { ok: true }; }
+  fail(403, 'You can only delete your own posts.');
+});
+
+on('POST', '/api/posts/:id/react', async ({ id }, _q, body) => {
+  requireProfile(); visiblePost(id);
+  const value = Number(body.value);
+  if (![1, -1, 0].includes(value)) fail(400, 'Invalid reaction.');
+  const r = clone(myDoc('reactions')); r.votes = r.votes || {};
+  if (value === 0) delete r.votes[id]; else r.votes[id] = value;
+  await setMine('reactions', r);
+  return { post: serializePost(visiblePost(id)) };
+});
+
+on('POST', '/api/posts/:id/save', async ({ id }) => {
+  requireProfile(); visiblePost(id);
+  const s = clone(mySaves); s.posts = s.posts || {};
+  const saved = !s.posts[id];
+  if (saved) s.posts[id] = now(); else delete s.posts[id];
+  mySaves = s;
+  await write(`data/users/${uid}/saves`, () => db.doc(`data/users/${uid}/saves`).set(s));
+  return { saved };
+});
+
+on('POST', '/api/posts/:id/view', async ({ id }) => {
+  if (uid && !writeRefused && !isBanned(uid) && profiles().get(uid)) {
+    const v = myDoc('views');
+    if (!(v.seen && v.seen[id])) {
+      const nv = clone(v); nv.seen = nv.seen || {}; nv.seen[id] = 1;
+      setMine('views', nv).catch(() => {});
+    }
+  }
+  return { views: counts().views.get(Number(id)) || 0 };
+});
+
+on('POST', '/api/posts/:id/report', async ({ id }, _q, body) => {
+  requireProfile();
+  const p = visiblePost(id);
+  if (p.authorId === uid) fail(400, "You can't report your own post.");
+  const r = clone(myDoc('reports')); r.posts = r.posts || {};
+  r.posts[id] = REPORT_REASONS.includes(body.reason) ? body.reason : 'other';
+  await setMine('reports', r);
+  return { ok: true };
+});
+
+function serializeComment(c, C) {
+  const a = userPublic(c.authorId);
+  return {
+    id: c.id, postId: c.postId, parentId: c.parentId || null, body: c.body, createdAt: c.createdAt,
+    likes: C.clikes.get(c.id) || 0, liked: !!((myDoc('clikes').liked || {})[c.id]), hidden: commentHidden(c),
+    author: { id: a.id, username: a.username, displayName: a.displayName, avatar: a.avatar },
+  };
+}
+on('GET', '/api/posts/:id/comments', ({ id }, q) => {
+  visiblePost(id);
+  const C = counts();
+  const list = [...allComments().values()].filter((c) => c.postId === Number(id) && (!commentHidden(c) || isOwner)).map((c) => serializeComment(c, C));
+  if (q.get('sort') === 'new') list.sort((a, b) => b.createdAt - a.createdAt);
+  else list.sort((a, b) => b.likes - a.likes || a.createdAt - b.createdAt);
+  return { comments: list };
+});
+on('POST', '/api/posts/:id/comments', async ({ id }, _q, body) => {
+  requireProfile(); visiblePost(id);
+  const text = String(body.body || '').trim().slice(0, 1000);
+  if (!text) fail(400, 'Comment cannot be empty.');
+  if (!checkText(text)) fail(400, blockedMsg);
+  let parentId = body.parentId ? Number(body.parentId) : null;
+  if (parentId) {
+    const parent = allComments().get(parentId);
+    if (!parent || parent.postId !== Number(id)) fail(400, 'Replying to a comment that no longer exists.');
+    parentId = parent.parentId || parent.id;
+  }
+  const cid = newId();
+  const mine = clone(myDoc('comments')); mine.items = mine.items || {};
+  mine.items[cid] = { postId: Number(id), parentId, body: text, createdAt: now() };
+  await setMine('comments', mine);
+  return { comment: serializeComment({ ...mine.items[cid], id: cid, authorId: uid }, counts()) };
+});
+on('DELETE', '/api/comments/:id', async ({ id }) => {
+  requireMember();
+  const mine = clone(myDoc('comments'));
+  if (mine.items && mine.items[id]) { delete mine.items[id]; await setMine('comments', mine); return { ok: true }; }
+  if (isOwner) { await setMod((m) => { (m.removedComments = m.removedComments || {})[id] = true; }); return { ok: true }; }
+  fail(403, "Only moderators can remove other people's comments — use Report instead.");
+});
+on('POST', '/api/comments/:id/like', async ({ id }) => {
+  requireProfile();
+  if (!allComments().get(Number(id))) fail(404, 'Comment not found.');
+  const l = clone(myDoc('clikes')); l.liked = l.liked || {};
+  const liked = !l.liked[id];
+  if (liked) l.liked[id] = 1; else delete l.liked[id];
+  await setMine('clikes', l);
+  return { liked, likes: counts().clikes.get(Number(id)) || 0 };
+});
+on('POST', '/api/comments/:id/report', async ({ id }, _q, body) => {
+  requireProfile();
+  const c = allComments().get(Number(id));
+  if (!c) fail(404, 'Comment not found.');
+  if (c.authorId === uid) fail(400, "You can't report your own comment.");
+  const r = clone(myDoc('reports')); r.comments = r.comments || {};
+  r.comments[id] = REPORT_REASONS.includes(body.reason) ? body.reason : 'other';
+  await setMine('reports', r);
+  return { ok: true };
+});
+
+const byUsername = (name) => {
+  for (const [id, p] of profiles()) if (p.username === String(name).toLowerCase() && (!isBanned(id) || isOwner)) return id;
+  return null;
+};
+on('GET', '/api/users/:username', ({ username }) => {
+  const id = byUsername(decodeURIComponent(username));
+  if (!id) fail(404, 'User not found.');
+  const C = counts();
+  const posts = [...allPosts().values()].filter((p) => p.authorId === id && postStatus(p).status === 'approved');
+  let followers = 0;
+  for (const [f, body] of raw.follows) if (!isBanned(f) && body && body.following && body.following[id]) followers++;
+  const following = Object.keys((raw.follows.get(id) || {}).following || {}).length;
+  const p = profiles().get(id);
+  return { user: { ...userPublic(id), createdAt: p.createdAt, followers, following, posts: posts.length,
+    likes: posts.reduce((n, x) => n + (C.likes.get(x.id) || 0), 0), isFollowing: uid ? isFollowing(uid, id) : false, isMe: id === uid } };
+});
+on('POST', '/api/users/:username/follow', async ({ username }) => {
+  requireProfile();
+  const id = byUsername(decodeURIComponent(username));
+  if (!id) fail(404, 'User not found.');
+  if (id === uid) fail(400, "You can't follow yourself.");
+  const f = clone(myDoc('follows')); f.following = f.following || {};
+  const isF = !f.following[id];
+  if (isF) f.following[id] = now(); else delete f.following[id];
+  await setMine('follows', f);
+  let followers = 0;
+  for (const [, body] of raw.follows) if (body && body.following && body.following[id]) followers++;
+  return { isFollowing: isF, followers };
+});
+on('GET', '/api/users/:username/followers', ({ username }) => {
+  const id = byUsername(decodeURIComponent(username));
+  if (!id) fail(404, 'User not found.');
+  const ids = [...raw.follows].filter(([f, b]) => !isBanned(f) && b && b.following && b.following[id] && profiles().get(f)).map(([f]) => f);
+  return { users: ids.map(userPublic) };
+});
+on('GET', '/api/users/:username/following', ({ username }) => {
+  const id = byUsername(decodeURIComponent(username));
+  if (!id) fail(404, 'User not found.');
+  return { users: Object.keys((raw.follows.get(id) || {}).following || {}).filter((x) => profiles().get(x) && !isBanned(x)).map(userPublic) };
+});
+on('GET', '/api/tags/popular', () => {
+  const n = {};
+  for (const p of allPosts().values()) if (postStatus(p).status === 'approved') for (const t of String(p.tags || '').split(',').filter(Boolean)) n[t] = (n[t] || 0) + 1;
+  return { tags: Object.entries(n).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([t]) => t) };
+});
+
+// ---------- moderation (artifact owner) ----------
+async function setMod(fn) {
+  if (!isOwner) fail(403, 'Moderators only.');
+  const m = clone(mod); fn(m); mod = m;
+  await write('mod/state', () => db.doc('mod/state').set(m));
+}
+on('GET', '/api/mod/queue', () => {
+  if (!isOwner) fail(403, 'Moderators only.');
+  const C = counts();
+  const reasonsList = (r) => Object.entries(r.reasons).map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n);
+  const posts = [...allPosts().values()].filter((p) => postStatus(p).status === 'pending' || reportsFor('posts', String(p.id)).n > ((mod.cleared || {})[p.id] || 0))
+    .sort((a, b) => (postStatus(b).status === 'pending') - (postStatus(a).status === 'pending') || b.createdAt - a.createdAt)
+    .map((p) => ({ ...serializePost(p, C), modReason: postStatus(p).reason, reports: reasonsList(reportsFor('posts', String(p.id))) }));
+  const comments = [...allComments().values()].filter((c) => reportsFor('comments', String(c.id)).n > ((mod.keptComments || {})[c.id] || 0))
+    .map((c) => ({ ...serializeComment(c, C), reports: reasonsList(reportsFor('comments', String(c.id))) }));
+  return { posts, comments };
+});
+on('POST', '/api/mod/posts/:id', async ({ id }, _q, body) => {
+  if (body.action === 'approve') await setMod((m) => { (m.approved = m.approved || {})[id] = true; (m.cleared = m.cleared || {})[id] = reportsFor('posts', id).n; });
+  else if (body.action === 'remove') await setMod((m) => { (m.removed = m.removed || {})[id] = true; });
+  else fail(400, 'Unknown action.');
+  return { ok: true };
+});
+on('POST', '/api/mod/comments/:id', async ({ id }, _q, body) => {
+  if (body.action === 'keep') await setMod((m) => { (m.keptComments = m.keptComments || {})[id] = reportsFor('comments', id).n; });
+  else if (body.action === 'remove') await setMod((m) => { (m.removedComments = m.removedComments || {})[id] = true; });
+  else fail(400, 'Unknown action.');
+  return { ok: true };
+});
+on('POST', '/api/mod/users/:username', async ({ username }, _q, body) => {
+  const id = byUsername(decodeURIComponent(username));
+  if (!id) fail(404, 'User not found.');
+  if (id === uid) fail(400, "You can't ban yourself.");
+  if (body.action === 'ban') await setMod((m) => { (m.banned = m.banned || {})[id] = true; });
+  else if (body.action === 'unban') await setMod((m) => { if (m.banned) delete m.banned[id]; });
+  else fail(400, 'Unknown action.');
+  return { ok: true };
+});
+
+// ---------- request entry point ----------
+async function request(method, url, body, opts) {
+  await ready;
+  const u = new URL(url, 'http://x');
+  for (const r of routes) {
+    if (r.method !== method) continue;
+    const m = u.pathname.match(r.re);
+    if (m) return r.fn(m.groups || {}, u.searchParams, body || {}, opts);
+  }
+  fail(404, 'Not found.');
+}
+
+// ---------- boot: connect to the runtime and load everything ----------
+let status = 'loading';
+const ready = (async () => {
+  const use = (n) => (window.claude && window.claude.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+  [db, user, assets] = await Promise.all([use('db'), use('user'), use('assets')]);
+  if (!db) { status = 'nodb'; return; }
+  if (user) {
+    uid = await user.id();
+    isOwner = await user.isOwner();
+    canWrite = await user.can('data.write');
+    if (canWrite === false) writeRefused = true;
+  }
+  const firstLoads = [];
+  const sub = (ref, onData) => new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    setTimeout(finish, 10000);
+    ref.onSnapshot((snap) => { onData(snap); if (!snap.metadata.fromCache) finish(); listeners.forEach((f) => f()); }, () => finish());
+  });
+  for (const col of USER_COLLECTIONS) {
+    firstLoads.push(sub(db.collection(col), (snap) => {
+      const m = new Map();
+      for (const d of snap.docs) m.set(d.id, d.data());
+      // keep our own optimistic body while our write is pending
+      if (uid && raw[col].has(uid) && snap.metadata.hasPendingWrites) m.set(uid, raw[col].get(uid));
+      raw[col] = m;
+    }));
+  }
+  firstLoads.push(sub(db.doc('mod/state'), (snap) => { mod = snap.exists ? clone(snap.data()) : {}; }));
+  if (uid) firstLoads.push(sub(db.doc(`data/users/${uid}/saves`), (snap) => { mySaves = snap.exists ? clone(snap.data()) : {}; }));
+  await Promise.all(firstLoads);
+  status = 'ready';
+})();
+
+window.VBBackend = {
+  request, ready, onChange: (f) => listeners.add(f), status: () => status,
+  limits: { maxBytes: MAX_BYTES, accept: [...VIDEO_TYPES, ...IMAGE_TYPES].join(',') },
+};
+})();
+
+</script>
+<script>
+/* VBrowse (VibeBrowse) — client app (vanilla JS, hash router) */
+(() => {
+'use strict';
+
+// ---------------- state ----------------
+const state = {
+  me: null,
+  categories: [],
+  filters: { sort: 'trending', kind: '', category: '', q: '', tag: '' },
+  hosted: null, // set when running as a Claude-hosted page (see hosted/backend.js)
+  posts: new Map(), // id -> post (cache, used to sync UI everywhere)
+};
+const $app = document.getElementById('app');
+const $modal = document.getElementById('modalRoot');
+let cleanupView = () => {};
+
+// ---------------- helpers ----------------
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M'
+  : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K' : String(n);
+function ago(t) {
+  const s = Math.max(1, Math.floor((Date.now() - t) / 1000));
+  const units = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+  for (const [u, sec] of units) if (s >= sec) { const n = Math.floor(s / sec); return `${n} ${u}${n > 1 ? 's' : ''} ago`; }
+  return 'just now';
+}
+const COLORS = ['#ff3d6e', '#7c5cff', '#22b8cf', '#f59f00', '#12b886', '#e64980', '#4c6ef5', '#fd7e14'];
+const colorFor = (s) => COLORS[[...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const GRADS = [['#ff3d6e', '#7c5cff'], ['#0ea5e9', '#22c55e'], ['#f59e0b', '#ef4444'], ['#8b5cf6', '#ec4899'], ['#14b8a6', '#6366f1'], ['#f97316', '#eab308']];
+const gradFor = (id) => { const [a, b] = GRADS[id % GRADS.length]; return `linear-gradient(135deg, ${a}, ${b})`; };
+
+function avatar(u, size = '') {
+  if (u.avatar) return `<img class="avatar ${size}" src="${esc(u.avatar)}" alt="">`;
+  const name = u.displayName || u.username || '?';
+  return `<span class="avatar ${size}" style="background:${colorFor(u.username)}">${esc(name[0])}</span>`;
+}
+// Escape, then link #tags and @mentions
+function richText(s) {
+  return esc(s)
+    .replace(/(^|\s)#([a-zA-Z0-9_]{1,40})/g, '$1<a class="hashtag" href="#/tag/$2">#$2</a>')
+    .replace(/(^|\s)@([a-zA-Z0-9_.]{3,20})/g, '$1<a class="mention" href="#/u/$2">@$2</a>');
+}
+const titleOf = (p) => (p.caption || '').split('\n')[0] || (p.kind === 'video' ? 'Untitled video' : p.kind === 'image' ? 'Untitled photo' : 'Post');
+
+const ICON = {
+  like: '<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg>',
+  likeOutline: '<svg viewBox="0 0 24 24"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>',
+  thumbUp: '<svg viewBox="0 0 24 24"><path d="M2 21h4V9H2v12zm20-11a2 2 0 00-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L13.2 1 6.6 7.6C6.2 7.9 6 8.4 6 9v10a2 2 0 002 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.2-.5.2-.7v-2z"/></svg>',
+  thumbDown: '<svg viewBox="0 0 24 24"><path d="M15 3H6c-.8 0-1.5.5-1.8 1.2l-3 7.1c-.1.2-.2.5-.2.7v2a2 2 0 002 2h6.3l-1 4.6v.3c0 .4.2.8.4 1.1L9.8 23l6.6-6.6c.4-.4.6-.9.6-1.4V5a2 2 0 00-2-2zm4 0v12h4V3h-4z"/></svg>',
+  comment: '<svg viewBox="0 0 24 24"><path d="M21 6h-2v9H6v2a1 1 0 001 1h11l4 4V7a1 1 0 00-1-1zm-4 6V3a1 1 0 00-1-1H3a1 1 0 00-1 1v14l4-4h10a1 1 0 001-1z"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M6 2h12a1 1 0 011 1v19l-7-4-7 4V3a1 1 0 011-1z"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg>',
+  close: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 8a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>',
+  muted: '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16.5 12A4.5 4.5 0 0014 8v2.2l2.45 2.45c.03-.2.05-.42.05-.65zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0021 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
+  sound: '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8v8a4.47 4.47 0 002.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="38" height="38"><path fill="#fff" d="M8 5v14l11-7z"/></svg>',
+  upload: '<svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>',
+};
+
+function toast(msg, err = false) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (err ? ' err' : '');
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+const HOSTED = !!window.VBBackend;
+async function api(path, opts = {}) {
+  if (HOSTED) return window.VBBackend.request(opts.method || 'GET', path, opts.body, opts);
+  const init = { method: opts.method || 'GET', headers: {}, credentials: 'same-origin' };
+  if (opts.body instanceof FormData) init.body = opts.body;
+  else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers['Content-Type'] = 'application/json'; }
+  const res = await fetch(path, init);
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const e = new Error(data.error || `Request failed (${res.status})`);
+    e.status = res.status; throw e;
+  }
+  return data;
+}
+
+function requireLogin(reason) {
+  if (state.me) return true;
+  if (HOSTED && !(state.hosted && state.hosted.canWrite)) {
+    toast(state.hosted && state.hosted.signedIn ? "You can browse, but the owner hasn't given you permission to post or react yet." : 'Sign in to Claude to take part.', true);
+    return false;
+  }
+  openAuth('signup', reason);
+  return false;
+}
+
+// ---------------- post sync ----------------
+// Every rendered post part carries data-pid; when a post changes we refresh those parts.
+function cachePost(p) { state.posts.set(p.id, p); return p; }
+function refreshPost(p) {
+  cachePost(p);
+  document.querySelectorAll(`[data-pid="${p.id}"][data-part]`).forEach((el) => {
+    const part = el.dataset.part;
+    if (part === 'rail') el.innerHTML = railInner(p);
+    else if (part === 'pills') el.innerHTML = pillsInner(p);
+    else if (part === 'stats') el.innerHTML = statsInner(p);
+  });
+}
+
+async function react(id, value) {
+  if (!requireLogin('Sign up to like and dislike posts.')) return;
+  const p = state.posts.get(id);
+  if (p) { // optimistic update
+    const old = p.myReaction;
+    const next = { ...p, myReaction: value };
+    if (old === 1) next.likes--; if (old === -1) next.dislikes--;
+    if (value === 1) next.likes++; if (value === -1) next.dislikes++;
+    refreshPost(next);
+  }
+  try { const { post } = await api(`/api/posts/${id}/react`, { method: 'POST', body: { value } }); refreshPost(post); }
+  catch (e) { toast(e.message, true); if (p) refreshPost(p); }
+}
+const toggleLike = (id) => react(id, state.posts.get(id)?.myReaction === 1 ? 0 : 1);
+const toggleDislike = (id) => react(id, state.posts.get(id)?.myReaction === -1 ? 0 : -1);
+
+async function toggleSave(id) {
+  if (!requireLogin('Sign up to save posts.')) return;
+  try {
+    const { saved } = await api(`/api/posts/${id}/save`, { method: 'POST' });
+    const p = state.posts.get(id); if (p) refreshPost({ ...p, saved });
+    toast(saved ? 'Saved' : 'Removed from saved');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toggleFollow(username, btn) {
+  if (!requireLogin('Sign up to follow people.')) return null;
+  try {
+    const r = await api(`/api/users/${encodeURIComponent(username)}/follow`, { method: 'POST' });
+    for (const p of state.posts.values()) if (p.author.username === username) refreshPost({ ...p, followingAuthor: r.isFollowing });
+    document.querySelectorAll(`[data-follow="${CSS.escape(username)}"]`).forEach((b) => setFollowBtn(b, r.isFollowing));
+    if (btn) setFollowBtn(btn, r.isFollowing);
+    return r;
+  } catch (e) { toast(e.message, true); return null; }
+}
+function setFollowBtn(b, on) {
+  if (b.classList.contains('follow-pill')) { b.classList.toggle('done', on); b.textContent = on ? '✓ Following' : 'Follow'; return; }
+  b.classList.toggle('primary', !on); b.classList.toggle('following', on); b.textContent = on ? 'Following' : 'Follow';
+}
+function followBtn(author, cls = '') {
+  if (state.me && state.me.id === author.id) return '';
+  const on = author.isFollowing ?? false;
+  return `<button class="btn small ${on ? 'following' : 'primary'} ${cls}" data-follow="${esc(author.username)}">${on ? 'Following' : 'Follow'}</button>`;
+}
+
+async function sharePost(id) {
+  const url = `${location.origin}/#/p/${id}`;
+  try {
+    if (navigator.share) await navigator.share({ url, title: titleOf(state.posts.get(id) || {}) });
+    else { await navigator.clipboard.writeText(url); toast('Link copied'); }
+  } catch {}
+}
+
+const REPORT_REASONS = [
+  ['nudity', 'Nudity or sexual content'], ['violence', 'Violence or gore'], ['hate', 'Hate speech or symbols'],
+  ['harassment', 'Bullying or harassment'], ['spam', 'Spam or scam'], ['other', 'Something else'],
+];
+function openReport(type, id) {
+  if (!requireLogin('Sign up to report content.')) return;
+  const m = openModal(`
+    <h2>Report ${type}</h2>
+    <p class="lead">Why are you reporting this? Reports go to the moderators. Content that gets several reports is hidden until a moderator reviews it.</p>
+    <form class="form" id="repForm">
+      <div class="reasons">${REPORT_REASONS.map(([v, l], i) => `<label class="reason"><input type="radio" name="reason" value="${v}" ${i === 0 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+      <p class="error" id="repErr"></p>
+      <button class="btn primary" type="submit">Submit report</button>
+    </form>`);
+  m.querySelector('#repForm').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/${type === 'comment' ? 'comments' : 'posts'}/${id}/report`, { method: 'POST', body: { reason: new FormData(e.target).get('reason') } });
+      closeModal(); toast('Thanks — a moderator will take a look.');
+    } catch (er) { m.querySelector('#repErr').textContent = er.message; }
+  };
+}
+
+// ---------------- top bar ----------------
+function renderTop() {
+  const el = document.getElementById('topActions');
+  if (!state.me) {
+    if (HOSTED) {
+      el.innerHTML = state.hosted && state.hosted.banned ? '<span class="chip tag" style="color:#ff7a8e">Account suspended</span>'
+        : state.hosted && state.hosted.canWrite
+        ? `<button class="btn primary" data-action="signup">Join VBrowse</button>`
+        : `<span class="chip tag" title="Ask the owner for access to post">👀 Viewing only</span>`;
+      return;
+    }
+    el.innerHTML = `<button class="btn ghost" data-action="login">Log in</button><button class="btn primary" data-action="signup">Sign up</button>`;
+    return;
+  }
+  el.innerHTML = `
+    <button class="btn" data-action="upload">${ICON.upload.replace('<svg', '<svg width="18" height="18" fill="currentColor"')}<span class="btn-upload-label">Upload</span></button>
+    <div class="menu">
+      <button class="icon-btn" data-action="usermenu" aria-label="Account menu">${avatar(state.me)}</button>
+    </div>`;
+}
+function openUserMenu(anchor) {
+  const wrap = anchor.closest('.menu');
+  if (wrap.querySelector('.menu-pop')) { wrap.querySelector('.menu-pop').remove(); return; }
+  const pop = document.createElement('div');
+  pop.className = 'menu-pop';
+  pop.innerHTML = `
+    <div class="me-line"><b>${esc(state.me.displayName)}</b><div class="sub">@${esc(state.me.username)}</div></div>
+    <a href="#/u/${esc(state.me.username)}">Your profile</a>
+    <button data-action="edit-profile">Edit profile</button>
+    <a href="#/saved">Saved posts</a>
+    ${state.me.isAdmin ? '<a href="#/mod">🛡️ Moderation</a>' : ''}
+    <a href="#/rules">Community rules</a>
+    ${HOSTED ? '' : '<button class="danger" data-action="logout">Log out</button>'}`;
+  wrap.appendChild(pop);
+  setTimeout(() => document.addEventListener('click', function close(e) {
+    if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', close); }
+  }), 0);
+}
+
+// ---------------- modals ----------------
+function openModal(html, cls = '') {
+  $modal.innerHTML = `<div class="modal-back"><div class="modal ${cls}" role="dialog" aria-modal="true">
+    <button class="icon-btn close" data-action="close-modal" aria-label="Close">${ICON.close}</button>${html}</div></div>`;
+  const back = $modal.querySelector('.modal-back');
+  back.addEventListener('mousedown', (e) => { if (e.target === back) closeModal(); });
+  setTimeout(() => $modal.querySelector('input, textarea')?.focus(), 30);
+  return $modal.querySelector('.modal');
+}
+function closeModal() { $modal.innerHTML = ''; }
+// In-page confirmation (browser confirm() dialogs are blocked in some places VBrowse runs)
+function ask(message, okLabel = 'Confirm') {
+  return new Promise((resolve) => {
+    const prev = document.getElementById('askBox'); if (prev) prev.remove();
+    const back = document.createElement('div');
+    back.className = 'modal-back'; back.id = 'askBox'; back.style.zIndex = 150;
+    back.innerHTML = `<div class="modal" role="alertdialog" aria-modal="true" style="width:min(400px,100%)">
+      <p style="margin:0 0 18px;font-size:16px;font-weight:600">${esc(message)}</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-no>Cancel</button><button class="btn primary danger-btn" data-yes>${esc(okLabel)}</button></div></div>`;
+    const done = (v) => { back.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    back.addEventListener('click', (e) => { if (e.target === back || e.target.closest('[data-no]')) done(false); else if (e.target.closest('[data-yes]')) done(true); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(back);
+    back.querySelector('[data-yes]').focus();
+  });
+}
+
+function openAuth(mode = 'login', reason = '') {
+  if (HOSTED) mode = 'signup';
+  const signup = mode === 'signup';
+  const m = openModal(`
+    <h2>${HOSTED ? 'Create your VBrowse profile' : signup ? 'Create your account' : 'Welcome back'}</h2>
+    <p class="lead">${esc(reason || (signup ? 'Post videos and photos, follow creators, and join the conversation.' : 'Log in to keep scrolling.'))}</p>
+    <form class="form" id="authForm" novalidate>
+      ${signup ? `<label>Display name<input name="displayName" maxlength="40" placeholder="Your name" autocomplete="name"></label>` : ''}
+      <label>Username<input name="username" required maxlength="20" placeholder="${signup ? 'letters, numbers, _ or .' : 'username'}" autocomplete="username" autocapitalize="none"></label>
+      ${HOSTED ? '<p class="hint">No password needed: you sign in with your Claude account.</p>' : `<label>Password<input name="password" type="password" required minlength="6" placeholder="${signup ? 'At least 6 characters' : 'Password'}" autocomplete="${signup ? 'new-password' : 'current-password'}"></label>`}
+      <p class="error" id="authErr"></p>
+      ${signup ? '<p class="hint">By signing up you agree to the <a href="#/rules" data-action="close-modal-nav" style="color:var(--text);text-decoration:underline">community rules</a>: no nudity, sexual content, hate or harassment.</p>' : ''}
+      <button class="btn primary" type="submit">${signup ? 'Sign up' : 'Log in'}</button>
+      ${HOSTED ? '' : `<p class="switch">${signup ? 'Already have an account?' : "Don't have an account?"} <button type="button" data-action="${signup ? 'login' : 'signup'}">${signup ? 'Log in' : 'Sign up'}</button></p>`}
+    </form>`);
+  m.querySelector('#authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      const { user } = await api(signup ? '/api/signup' : '/api/login', { method: 'POST', body: fd });
+      state.me = user; if (state.hosted) state.hosted.hasProfile = true; closeModal(); renderTop();
+      toast(signup ? `Welcome to VBrowse, ${user.displayName}!` : `Welcome back, ${user.displayName}`);
+      state.posts.clear(); route();
+    } catch (err) { m.querySelector('#authErr').textContent = err.message; btn.disabled = false; }
+  });
+}
+
+function openUpload() {
+  if (!requireLogin('Sign up to post videos and photos.')) return;
+  const cats = state.categories.map((c) => `<option value="${c}">${c[0].toUpperCase() + c.slice(1)}</option>`).join('');
+  const m = openModal(`
+    <h2>Create a post</h2>
+    <p class="lead">Share a video, a photo, or just your thoughts.</p>
+    <form class="form" id="upForm">
+      <div class="upload-grid">
+        <div>
+          <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="Choose a file">
+            ${ICON.upload}
+            <b style="color:var(--text)">Drag a video or photo here</b>
+            <span class="hint">${HOSTED ? 'MP4, WEBM, JPG, PNG, GIF, WEBP · up to 20 MB' : 'MP4, WEBM, MOV, JPG, PNG, GIF, WEBP · up to 200 MB'}</span>
+            <span class="btn small primary">Choose file</span>
+            <span class="hint">or skip this for a text post</span>
+          </div>
+          <input type="file" id="fileIn" accept="${HOSTED ? 'video/mp4,video/webm,image/jpeg,image/png,image/gif,image/webp' : 'video/mp4,video/webm,video/quicktime,video/ogg,image/jpeg,image/png,image/gif,image/webp'}" hidden>
+        </div>
+        <div class="form">
+          <label>Caption <span class="hint">Use #hashtags and @mentions</span>
+            <textarea name="caption" id="capIn" maxlength="2200" rows="6" placeholder="What's this about?"></textarea>
+            <span class="counter" id="capCount">0 / 2200</span>
+          </label>
+          <label>Category<select name="category">${cats}</select></label>
+          <label>Tags <span class="hint">space or comma separated</span><input name="tags" placeholder="funny, cats, summer"></label>
+          <p class="hint">🛡️ Every upload is automatically checked. Nudity and sexual content are blocked. <a href="#/rules" data-action="close-modal-nav" style="color:var(--text);text-decoration:underline">Rules</a></p>
+          <div class="progress hidden" id="prog"><div></div></div>
+          <p class="error" id="upErr"></p>
+          <button class="btn primary" type="submit" id="postBtn">Post</button>
+        </div>
+      </div>
+    </form>`, 'wide');
+  let file = null;
+  const drop = m.querySelector('#drop'), fileIn = m.querySelector('#fileIn');
+  const dropDefault = drop.innerHTML;
+  const setFile = (f) => {
+    if (!f) return;
+    if (!/^(video|image)\//.test(f.type)) { m.querySelector('#upErr').textContent = 'That file type is not supported.'; return; }
+    const maxMb = HOSTED ? 20 : 200;
+    if (f.size > maxMb * 1024 * 1024) { m.querySelector('#upErr').textContent = `File is too big (max ${maxMb} MB).`; return; }
+    file = f; m.querySelector('#upErr').textContent = '';
+    const url = URL.createObjectURL(f);
+    drop.innerHTML = (f.type.startsWith('video') ? `<video src="${url}" muted autoplay loop playsinline></video>` : `<img src="${url}" alt="">`)
+      + `<button type="button" class="icon-btn remove" aria-label="Remove file">${ICON.close}</button>`;
+    drop.querySelector('.remove').onclick = (e) => { e.stopPropagation(); file = null; fileIn.value = ''; drop.innerHTML = dropDefault; };
+  };
+  drop.onclick = () => { if (!file) fileIn.click(); };
+  drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!file) fileIn.click(); } };
+  fileIn.onchange = () => setFile(fileIn.files[0]);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('drag'); };
+  drop.ondragleave = () => drop.classList.remove('drag');
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('drag'); setFile(e.dataTransfer.files[0]); };
+  const cap = m.querySelector('#capIn');
+  cap.oninput = () => { m.querySelector('#capCount').textContent = `${cap.value.length} / 2200`; };
+
+  m.querySelector('#upForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if (!file && !String(fd.get('caption')).trim()) { m.querySelector('#upErr').textContent = 'Add a video or photo, or write something.'; return; }
+    if (file) fd.append('media', file);
+    const btn = m.querySelector('#postBtn'), prog = m.querySelector('#prog');
+    btn.disabled = true; btn.textContent = 'Posting…'; prog.classList.remove('hidden');
+    const done = (post) => {
+      closeModal();
+      toast(post.status === 'pending' ? 'Uploaded! It will appear publicly once a moderator approves it.' : 'Posted!');
+      location.hash = `#/p/${post.id}`;
+    };
+    if (HOSTED) {
+      prog.firstElementChild.style.width = '30%';
+      api('/api/posts', { method: 'POST', body: fd, onStage: (t) => { btn.textContent = t; prog.firstElementChild.style.width = t.startsWith('Upload') ? '70%' : '45%'; } })
+        .then(({ post }) => done(post))
+        .catch((er) => { m.querySelector('#upErr').textContent = er.message; btn.disabled = false; btn.textContent = 'Post'; prog.classList.add('hidden'); });
+      return;
+    }
+    // XHR so we can show upload progress
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/posts');
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) prog.firstElementChild.style.width = `${(ev.loaded / ev.total) * 100}%`;
+      if (ev.loaded === ev.total && file) btn.textContent = 'Running safety check…';
+    };
+    xhr.onload = () => {
+      let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) {
+        done(data.post);
+      } else {
+        m.querySelector('#upErr').textContent = data.error || 'Upload failed.'; btn.disabled = false; btn.textContent = 'Post'; prog.classList.add('hidden');
+      }
+    };
+    xhr.onerror = () => { m.querySelector('#upErr').textContent = 'Network error, try again.'; btn.disabled = false; btn.textContent = 'Post'; };
+    xhr.send(fd);
+  });
+}
+
+function openEditProfile() {
+  if (!state.me) return;
+  const m = openModal(`
+    <h2>Edit profile</h2>
+    <p class="lead">This is how people see you on VBrowse.</p>
+    <form class="form" id="profForm">
+      <div style="display:flex;align-items:center;gap:16px">
+        <span id="avPrev">${avatar(state.me, 'lg')}</span>
+        <label class="btn small" style="flex-direction:row;color:var(--text)">Change photo<input type="file" name="avatar" accept="image/*" hidden id="avIn"></label>
+      </div>
+      <label>Display name<input name="displayName" maxlength="40" value="${esc(state.me.displayName)}"></label>
+      <label>Bio<textarea name="bio" maxlength="300" placeholder="Tell people about yourself">${esc(state.me.bio || '')}</textarea></label>
+      <p class="error" id="profErr"></p>
+      <button class="btn primary" type="submit">Save</button>
+    </form>`);
+  m.querySelector('#avIn').onchange = (e) => {
+    const f = e.target.files[0]; if (f) m.querySelector('#avPrev').innerHTML = `<img class="avatar lg" src="${URL.createObjectURL(f)}" alt="">`;
+  };
+  m.querySelector('#profForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if (!fd.get('avatar')?.size) fd.delete('avatar');
+    try {
+      const { user } = await api('/api/me', { method: 'PATCH', body: fd });
+      state.me = user; if (state.hosted) state.hosted.hasProfile = true; closeModal(); renderTop(); toast('Profile updated'); route();
+    } catch (err) { m.querySelector('#profErr').textContent = err.message; }
+  });
+}
+
+function openUserList(username, list) {
+  const m = openModal(`<h2 style="text-transform:capitalize">${list}</h2><div id="ulist"><div class="loader"><div class="spinner"></div></div></div>`);
+  api(`/api/users/${encodeURIComponent(username)}/${list}`).then(({ users }) => {
+    m.querySelector('#ulist').innerHTML = users.length ? users.map((u) => `
+      <a class="user-row" href="#/u/${esc(u.username)}" data-action="close-modal-nav">
+        ${avatar(u, 'md')}<div class="grow"><b>${esc(u.displayName)}</b><div class="sub">@${esc(u.username)}</div></div>
+      </a>`).join('') : `<p class="sub">Nobody yet.</p>`;
+  });
+}
+
+// ---------------- cards / grid ----------------
+function thumbHTML(p) {
+  if (p.kind === 'video') return `<div class="thumb"><video src="${esc(p.media)}#t=0.5" muted preload="metadata" playsinline loop></video>
+      <span class="badge kind-badge">▶ Video</span><span class="badge" data-dur></span></div>`;
+  if (p.kind === 'image') return `<div class="thumb"><img src="${esc(p.media)}" alt="" loading="lazy"></div>`;
+  return `<div class="thumb text-thumb" style="background:${gradFor(p.id)}"><span>${esc(p.caption)}</span></div>`;
+}
+function statsInner(p) {
+  return `<span class="${p.myReaction === 1 ? 'liked' : ''}">♥ ${fmt(p.likes)}</span>
+    <span class="${p.myReaction === -1 ? 'disliked' : ''}">👎 ${fmt(p.dislikes)}</span>
+    <span>💬 ${fmt(p.comments)}</span>`;
+}
+const reviewBadge = (p) => p.status === 'pending' ? `<span class="review-badge" title="${esc(p.modReason || '')}">⏳ Under review</span>` : '';
+function cardHTML(p) {
+  cachePost(p);
+  return `<article class="card" data-open="${p.id}">
+    <div style="position:relative">${thumbHTML(p)}${reviewBadge(p)}</div>
+    <div class="card-meta">
+      <a href="#/u/${esc(p.author.username)}" data-stop>${avatar(p.author)}</a>
+      <div class="info">
+        <h3 class="card-title">${esc(titleOf(p))}</h3>
+        <div class="sub"><a href="#/u/${esc(p.author.username)}" data-stop>${esc(p.author.displayName)}</a> · <span style="text-transform:capitalize">${esc(p.category)}</span></div>
+        <div class="sub">${fmt(p.views)} views · ${ago(p.createdAt)}</div>
+        <div class="card-stats" data-pid="${p.id}" data-part="stats">${statsInner(p)}</div>
+      </div>
+    </div>
+  </article>`;
+}
+function wireCards(root) {
+  root.querySelectorAll('.card:not([data-wired])').forEach((card) => {
+    card.dataset.wired = 1;
+    const v = card.querySelector('video');
+    if (v) {
+      v.addEventListener('loadedmetadata', () => {
+        const d = Math.round(v.duration || 0);
+        const b = card.querySelector('[data-dur]'); if (b && d) b.textContent = `${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')}`;
+      });
+      card.addEventListener('mouseenter', () => { v.currentTime = 0; v.play().catch(() => {}); });
+      card.addEventListener('mouseleave', () => { v.pause(); });
+    }
+  });
+}
+
+// Infinite-scrolling list of posts
+function infiniteList(container, buildUrl, render = cardHTML, onEmpty) {
+  let offset = 0, loading = false, done = false;
+  const sentinel = document.createElement('div');
+  sentinel.className = 'loader';
+  sentinel.innerHTML = '<div class="spinner"></div>';
+  container.after(sentinel);
+  async function more() {
+    if (loading || done) return;
+    loading = true;
+    try {
+      const { posts, nextOffset } = await api(buildUrl(offset));
+      if (!posts.length && offset === 0) onEmpty?.();
+      container.insertAdjacentHTML('beforeend', posts.map(render).join(''));
+      wireCards(container);
+      if (nextOffset == null) { done = true; sentinel.remove(); } else offset = nextOffset;
+    } catch (e) {
+      done = true; sentinel.innerHTML = `<p class="sub">${esc(e.message)}</p>`;
+      if (e.status === 401) onEmpty?.(e);
+    }
+    loading = false;
+    if (!done && sentinel.getBoundingClientRect().top < innerHeight + 600) more();
+  }
+  const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) more(); }, { rootMargin: '600px' });
+  io.observe(sentinel);
+  more();
+  return () => io.disconnect();
+}
+
+function qs(obj) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj)) if (v !== '' && v != null) p.set(k, v);
+  return p.toString();
+}
+
+// ---------------- views ----------------
+const SORTS = [['trending', 'Trending'], ['latest', 'Latest'], ['top', 'Top rated'], ['views', 'Most viewed'], ['discussed', 'Most discussed'], ['oldest', 'Oldest']];
+const KINDS = [['', 'All'], ['video', 'Videos'], ['image', 'Photos'], ['text', 'Posts']];
+
+async function viewHome({ mode = 'home', tag = '' } = {}) {
+  const f = state.filters;
+  if (tag) f.tag = tag;
+  const titles = { home: f.q ? `Results for “${f.q}”` : 'Home', following: 'Following', saved: 'Saved', tag: `#${tag}` };
+  const popular = await api('/api/tags/popular').then((r) => r.tags).catch(() => []);
+  $app.innerHTML = `
+    <section class="filters">
+      <div class="filter-head">
+        <h1>${esc(titles[mode])}</h1>
+        ${mode === 'home' || mode === 'tag' ? `<select class="select" id="sortSel" aria-label="Sort">${SORTS.map(([v, l]) => `<option value="${v}" ${f.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
+        <div class="seg" id="kindSeg">${KINDS.map(([v, l]) => `<button data-kind="${v}" class="${f.kind === v ? 'active' : ''}">${l}</button>`).join('')}</div>
+      </div>
+      ${f.q && mode === 'home' ? `<div class="active-filter">Searching “${esc(f.q)}” <button data-action="clear-search">Clear</button></div>` : ''}
+      <div class="chip-row" id="catRow">
+        <button class="chip ${!f.category ? 'active' : ''}" data-cat="">All</button>
+        ${state.categories.map((c) => `<button class="chip ${f.category === c ? 'active' : ''}" data-cat="${c}">${c}</button>`).join('')}
+      </div>
+      ${mode === 'home' && popular.length ? `<div class="chip-row">${popular.map((t) => `<a class="chip tag" href="#/tag/${esc(t)}">#${esc(t)}</a>`).join('')}</div>` : ''}
+    </section>
+    <section class="grid" id="grid"></section>`;
+
+  const grid = $app.querySelector('#grid');
+  const params = () => ({
+    sort: mode === 'following' ? 'following' : mode === 'saved' ? 'latest' : f.sort,
+    kind: f.kind, category: f.category,
+    q: mode === 'home' ? f.q : '', tag: mode === 'tag' ? tag : '', saved: mode === 'saved' ? 1 : '',
+  });
+  const emptyMsg = (err) => {
+    const msgs = {
+      following: ['Nobody to show yet', 'Follow creators and their posts will show up here.', state.me ? '<a class="btn primary" href="#/">Discover creators</a>' : '<button class="btn primary" data-action="signup">Sign up</button>'],
+      saved: ['No saved posts', 'Tap the bookmark on any post to save it for later.', state.me ? '' : '<button class="btn primary" data-action="signup">Sign up</button>'],
+    };
+    const [h, p, b] = msgs[mode] || ['Nothing here yet', f.q || f.category || f.kind ? 'Try different filters.' : 'Be the first to post something!', '<button class="btn primary" data-action="upload">Create a post</button>'];
+    grid.outerHTML = `<div class="empty"><h2>${h}</h2><p>${err?.status === 401 ? 'Log in to see this.' : p}</p>${b}</div>`;
+  };
+  let stop = infiniteList(grid, (offset) => `/api/posts?${qs({ ...params(), offset, limit: 12 })}`, cardHTML, emptyMsg);
+
+  const reload = () => { stop(); viewHome({ mode, tag }); };
+  $app.querySelector('#sortSel')?.addEventListener('change', (e) => { f.sort = e.target.value; reload(); });
+  $app.querySelector('#kindSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { f.kind = b.dataset.kind; reload(); } });
+  $app.querySelector('#catRow').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { f.category = b.dataset.cat; reload(); } });
+  cleanupView = () => stop();
+}
+
+// --- TikTok-style vertical scroll ---
+function railInner(p) {
+  const isMe = state.me && state.me.id === p.author.id;
+  return `
+    <a class="rail-avatar" href="#/u/${esc(p.author.username)}">${avatar(p.author, 'md')}
+      ${isMe ? '' : `<button class="follow-pill ${p.followingAuthor ? 'done' : ''}" data-follow="${esc(p.author.username)}" aria-label="${p.followingAuthor ? 'Unfollow' : 'Follow'}">${p.followingAuthor ? '✓ Following' : 'Follow'}</button>`}</a>
+    <button class="rail-btn ${p.myReaction === 1 ? 'on-like' : ''}" data-like="${p.id}" aria-label="Like"><span class="circle">${ICON.like}</span>${fmt(p.likes)}</button>
+    <button class="rail-btn ${p.myReaction === -1 ? 'on-dislike' : ''}" data-dislike="${p.id}" aria-label="Dislike"><span class="circle">${ICON.thumbDown}</span>${fmt(p.dislikes)}</button>
+    <button class="rail-btn" data-comments="${p.id}" aria-label="Comments"><span class="circle">${ICON.comment}</span>${fmt(p.comments)}</button>
+    <button class="rail-btn ${p.saved ? 'on-save' : ''}" data-save="${p.id}" aria-label="Save"><span class="circle">${ICON.save}</span>${p.saved ? 'Saved' : 'Save'}</button>
+    <button class="rail-btn" data-share="${p.id}" aria-label="Share"><span class="circle">${ICON.share}</span>Share</button>`;
+}
+function reelHTML(p) {
+  cachePost(p);
+  let stage;
+  if (p.kind === 'video') stage = `<div class="reel-stage" data-stage="${p.id}"><video src="${esc(p.media)}" loop playsinline preload="metadata"></video>
+      <button class="icon-btn reel-mute" data-mute aria-label="Toggle sound">${reelMuted ? ICON.muted : ICON.sound}</button>
+      <div class="paused-icon">${ICON.play}</div><div class="reel-progress"><div></div></div>`;
+  else if (p.kind === 'image') stage = `<div class="reel-stage" data-stage="${p.id}"><img src="${esc(p.media)}" alt="">`;
+  else stage = `<div class="reel-stage text-stage" data-stage="${p.id}" style="background:${gradFor(p.id)}"><p>${esc(p.caption)}</p>`;
+  return `<section class="reel" data-reel="${p.id}">
+    ${stage}
+      <div class="reel-overlay">
+        <a class="reel-author" href="#/u/${esc(p.author.username)}">@${esc(p.author.username)}<span class="sub">· ${ago(p.createdAt)}</span></a>
+        ${p.kind !== 'text' && p.caption ? `<div class="reel-caption">${richText(p.caption)}</div>${p.caption.length > 120 ? '<button class="reel-more" data-more>more</button>' : ''}` : ''}
+        <div class="sub" style="margin-top:4px">${fmt(p.views)} views · <span style="text-transform:capitalize">${esc(p.category)}</span>${state.me && state.me.id === p.author.id ? '' : ` · <button class="reel-report" data-report-post="${p.id}">⚑ Report</button>`}</div>
+      </div>
+    </div>
+    <div class="rail" data-pid="${p.id}" data-part="rail">${railInner(p)}</div>
+  </section>`;
+}
+let reelMuted = true;
+
+function viewScroll() {
+  const f = state.filters;
+  const scrollFilter = { feed: 'foryou', ...state.scrollFilter };
+  state.scrollFilter = scrollFilter;
+  $app.classList.add('fullbleed');
+  $app.innerHTML = `<div class="reel-wrap">
+    <div class="reel-top">
+      <div class="seg" id="feedSeg">
+        <button data-feed="foryou" class="${scrollFilter.feed === 'foryou' ? 'active' : ''}">For You</button>
+        <button data-feed="following" class="${scrollFilter.feed === 'following' ? 'active' : ''}">Following</button>
+        <button data-feed="latest" class="${scrollFilter.feed === 'latest' ? 'active' : ''}">Latest</button>
+      </div>
+      <select class="select" id="reelCat" aria-label="Category"><option value="">All</option>${state.categories.map((c) => `<option value="${c}" ${f.category === c ? 'selected' : ''}>${c[0].toUpperCase() + c.slice(1)}</option>`).join('')}</select>
+    </div>
+    <div class="reel-feed" id="feed"></div>
+  </div>`;
+  const feed = $app.querySelector('#feed');
+  const sortFor = { foryou: 'trending', following: 'following', latest: 'latest' };
+  let stopList = infiniteListReels();
+
+  function infiniteListReels() {
+    let offset = 0, loading = false, done = false;
+    const sentinel = document.createElement('div');
+    sentinel.style.cssText = 'height:1px';
+    feed.appendChild(sentinel);
+    async function more() {
+      if (loading || done) return; loading = true;
+      try {
+        const { posts, nextOffset } = await api(`/api/posts?${qs({ sort: sortFor[scrollFilter.feed], category: f.category, offset, limit: 6 })}`);
+        if (!posts.length && offset === 0) {
+          feed.innerHTML = `<div class="empty" style="padding-top:140px"><h2>Nothing to scroll yet</h2><p>${scrollFilter.feed === 'following' ? 'Follow some creators first.' : 'Try another category, or post something!'}</p><button class="btn primary" data-action="upload">Create a post</button></div>`;
+          done = true; loading = false; return;
+        }
+        sentinel.insertAdjacentHTML('beforebegin', posts.map(reelHTML).join(''));
+        posts.forEach((p) => observe(feed.querySelector(`[data-reel="${p.id}"]`)));
+        if (nextOffset == null) done = true; else offset = nextOffset;
+      } catch (e) {
+        done = true;
+        feed.innerHTML = `<div class="empty" style="padding-top:140px"><h2>${e.status === 401 ? 'Log in to see your Following feed' : 'Could not load'}</h2><p>${esc(e.message)}</p>${e.status === 401 ? '<button class="btn primary" data-action="signup">Sign up</button>' : ''}</div>`;
+      }
+      loading = false;
+    }
+    const sio = new IntersectionObserver((es) => { if (es[0].isIntersecting) more(); }, { root: feed, rootMargin: '200%' });
+    sio.observe(sentinel);
+    more();
+    return () => sio.disconnect();
+  }
+
+  // Autoplay the reel in view, pause others, count views
+  const viewed = new Set();
+  const playIO = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const v = en.target.querySelector('video');
+      const id = Number(en.target.dataset.reel);
+      if (en.isIntersecting && en.intersectionRatio > 0.6) {
+        if (v) { v.muted = reelMuted; v.play().then(() => en.target.querySelector('.reel-stage').classList.remove('paused')).catch(() => { v.muted = true; reelMuted = true; v.play().catch(() => {}); }); }
+        if (!viewed.has(id)) {
+          viewed.add(id);
+          setTimeout(() => { if (document.contains(en.target)) api(`/api/posts/${id}/view`, { method: 'POST' }).catch(() => {}); }, 1500);
+        }
+      } else if (v) v.pause();
+    }
+  }, { root: feed, threshold: [0, 0.6, 1] });
+  function observe(el) {
+    if (!el) return;
+    playIO.observe(el);
+    const v = el.querySelector('video');
+    if (v) v.addEventListener('timeupdate', () => { const bar = el.querySelector('.reel-progress div'); if (bar && v.duration) bar.style.width = `${(v.currentTime / v.duration) * 100}%`; });
+  }
+
+  // Tap = pause/play, double-tap = like (with heart)
+  let lastTap = 0, tapTimer;
+  feed.addEventListener('click', (e) => {
+    const stage = e.target.closest('.reel-stage');
+    if (!stage || e.target.closest('a, button')) return;
+    const id = Number(stage.dataset.stage);
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      clearTimeout(tapTimer); lastTap = 0;
+      const rect = stage.getBoundingClientRect();
+      const heart = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      heart.setAttribute('viewBox', '0 0 24 24'); heart.classList.add('big-heart');
+      heart.innerHTML = '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/>';
+      heart.style.left = `${e.clientX - rect.left}px`; heart.style.top = `${e.clientY - rect.top}px`;
+      stage.appendChild(heart); setTimeout(() => heart.remove(), 850);
+      if (state.posts.get(id)?.myReaction !== 1) react(id, 1);
+      return;
+    }
+    lastTap = now;
+    tapTimer = setTimeout(() => {
+      const v = stage.querySelector('video');
+      if (!v) return;
+      if (v.paused) { v.play(); stage.classList.remove('paused'); } else { v.pause(); stage.classList.add('paused'); }
+    }, 280);
+  });
+  feed.addEventListener('click', (e) => {
+    const mute = e.target.closest('[data-mute]');
+    if (mute) {
+      reelMuted = !reelMuted;
+      feed.querySelectorAll('video').forEach((v) => { v.muted = reelMuted; });
+      feed.querySelectorAll('[data-mute]').forEach((b) => { b.innerHTML = reelMuted ? ICON.muted : ICON.sound; });
+    }
+    const more = e.target.closest('[data-more]');
+    if (more) { const c = more.previousElementSibling; c.classList.toggle('open'); more.textContent = c.classList.contains('open') ? 'less' : 'more'; }
+  });
+
+  // Keyboard: up/down to move, L to like, M to mute
+  const onKey = (e) => {
+    if (e.target.matches('input, textarea, select') || $modal.innerHTML || document.querySelector('.drawer')) return;
+    if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); feed.scrollBy({ top: feed.clientHeight, behavior: 'smooth' }); }
+    if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); feed.scrollBy({ top: -feed.clientHeight, behavior: 'smooth' }); }
+    if (e.key === 'm') feed.querySelector('[data-mute]')?.click();
+    if (e.key === 'l') {
+      const idx = Math.round(feed.scrollTop / feed.clientHeight);
+      const el = feed.querySelectorAll('[data-reel]')[idx];
+      if (el) toggleLike(Number(el.dataset.reel));
+    }
+  };
+  document.addEventListener('keydown', onKey);
+
+  $app.querySelector('#feedSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-feed]'); if (!b) return;
+    scrollFilter.feed = b.dataset.feed; cleanupView(); viewScroll();
+  });
+  $app.querySelector('#reelCat').addEventListener('change', (e) => { f.category = e.target.value; cleanupView(); viewScroll(); });
+
+  cleanupView = () => {
+    stopList(); playIO.disconnect(); document.removeEventListener('keydown', onKey);
+    feed.querySelectorAll('video').forEach((v) => v.pause());
+    $app.classList.remove('fullbleed');
+  };
+}
+
+// --- Comments (shared by watch page + drawer) ---
+function commentHTML(c, post) {
+  const mine = state.me && (state.me.id === c.author.id || state.me.id === post.author.id);
+  return `<div class="comment" data-cid="${c.id}">
+    <a href="#/u/${esc(c.author.username)}">${avatar(c.author, c.parentId ? 'sm' : '')}</a>
+    <div class="body">
+      <div class="who"><a href="#/u/${esc(c.author.username)}">@${esc(c.author.username)}</a>${c.author.id === post.author.id ? '<span class="op">Creator</span>' : ''}<span class="sub">${ago(c.createdAt)}</span></div>
+      <p class="text">${richText(c.body)}</p>
+      <div class="tools">
+        <button data-clike="${c.id}" class="${c.liked ? 'liked' : ''}">${c.liked ? ICON.like : ICON.likeOutline}<span>${c.likes || ''}</span></button>
+        <button data-reply="${c.id}" data-reply-to="${esc(c.author.username)}">Reply</button>
+        ${mine || state.me?.isAdmin ? `<button data-cdel="${c.id}">Delete</button>` : ''}
+        ${state.me && state.me.id !== c.author.id ? `<button data-report-comment="${c.id}">Report</button>` : ''}
+        ${c.hidden ? '<span class="review-inline">hidden after reports</span>' : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function commentFormHTML(placeholder = 'Add a comment…', parentId = '') {
+  return `<form class="comment-form" data-parent="${parentId}">
+    ${state.me ? avatar(state.me, parentId ? 'sm' : '') : '<span class="avatar" style="background:var(--bg-3)">?</span>'}
+    <div class="field">
+      <textarea rows="1" maxlength="1000" placeholder="${esc(placeholder)}" name="body"></textarea>
+      <div class="actions hidden"><button type="button" class="btn small ghost" data-cancel>Cancel</button><button class="btn small primary" type="submit">${parentId ? 'Reply' : 'Comment'}</button></div>
+    </div>
+  </form>`;
+}
+
+function mountComments(root, post, { onCount } = {}) {
+  let comments = [], sort = 'top';
+  const openThreads = new Set();
+  const listEl = root.querySelector('[data-clist]');
+  const countEl = root.querySelector('[data-ccount]');
+
+  async function load() {
+    listEl.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+    const r = await api(`/api/posts/${post.id}/comments?sort=${sort === 'new' ? 'new' : 'top'}`);
+    comments = r.comments; render();
+  }
+  function render() {
+    const tops = comments.filter((c) => !c.parentId);
+    if (countEl) countEl.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
+    onCount?.(comments.length);
+    if (!tops.length) { listEl.innerHTML = '<p class="sub" style="padding:20px 0;text-align:center">No comments yet. Start the conversation!</p>'; return; }
+    listEl.innerHTML = tops.map((c) => {
+      const reps = comments.filter((r) => r.parentId === c.id).sort((a, b) => a.createdAt - b.createdAt);
+      const open = openThreads.has(c.id);
+      return `<div class="thread" data-thread="${c.id}">${commentHTML(c, post)}
+        ${reps.length ? `<button class="replies-toggle" data-toggle="${c.id}">${open ? '▲ Hide' : '▼ View'} ${reps.length} repl${reps.length === 1 ? 'y' : 'ies'}</button>` : ''}
+        <div class="replies ${open ? '' : 'hidden'}" data-replies="${c.id}">${reps.map((r) => commentHTML(r, post)).join('')}</div>
+      </div>`;
+    }).join('');
+  }
+  async function submit(form) {
+    if (!requireLogin('Sign up to comment.')) return;
+    const ta = form.querySelector('textarea');
+    const body = ta.value.trim(); if (!body) return;
+    const parentId = form.dataset.parent || null;
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      const { comment } = await api(`/api/posts/${post.id}/comments`, { method: 'POST', body: { body, parentId } });
+      comments.push(comment);
+      if (comment.parentId) openThreads.add(comment.parentId);
+      else if (sort === 'new') comments.sort((a, b) => b.createdAt - a.createdAt);
+      ta.value = ''; ta.style.height = '';
+      if (parentId) form.remove(); else form.querySelector('.actions').classList.add('hidden');
+      render();
+      const p = state.posts.get(post.id); if (p) refreshPost({ ...p, comments: comments.length });
+    } catch (e) { toast(e.message, true); }
+    btn.disabled = false;
+  }
+
+  root.addEventListener('focusin', (e) => {
+    if (e.target.matches('.comment-form textarea')) {
+      if (!state.me) { e.target.blur(); requireLogin('Sign up to comment.'); return; }
+      e.target.closest('form').querySelector('.actions').classList.remove('hidden');
+    }
+  });
+  root.addEventListener('input', (e) => {
+    if (e.target.matches('.comment-form textarea')) { e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }
+  });
+  root.addEventListener('keydown', (e) => {
+    if (e.target.matches('.comment-form textarea') && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(e.target.closest('form')); }
+  });
+  root.addEventListener('submit', (e) => { if (e.target.matches('.comment-form')) { e.preventDefault(); submit(e.target); } });
+  root.addEventListener('click', async (e) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.matches('[data-cancel]')) {
+      const form = t.closest('form');
+      if (form.dataset.parent) form.remove(); else { form.querySelector('textarea').value = ''; form.querySelector('.actions').classList.add('hidden'); }
+    } else if (t.dataset.toggle) {
+      const id = Number(t.dataset.toggle); openThreads.has(id) ? openThreads.delete(id) : openThreads.add(id); render();
+    } else if (t.dataset.sort) {
+      sort = t.dataset.sort; root.querySelectorAll('[data-sort]').forEach((b) => b.classList.toggle('active', b === t)); load();
+    } else if (t.dataset.clike) {
+      if (!requireLogin('Sign up to like comments.')) return;
+      const id = Number(t.dataset.clike);
+      const r = await api(`/api/comments/${id}/like`, { method: 'POST' }).catch((er) => toast(er.message, true));
+      if (r) { const c = comments.find((x) => x.id === id); c.liked = r.liked; c.likes = r.likes; render(); }
+    } else if (t.dataset.reply) {
+      if (!requireLogin('Sign up to reply.')) return;
+      const id = Number(t.dataset.reply);
+      const host = t.closest('.comment');
+      if (host.nextElementSibling?.matches('.comment-form')) { host.nextElementSibling.querySelector('textarea').focus(); return; }
+      host.insertAdjacentHTML('afterend', commentFormHTML(`Reply to @${t.dataset.replyTo}…`, id));
+      const ta = host.nextElementSibling.querySelector('textarea');
+      ta.value = `@${t.dataset.replyTo} `; ta.focus();
+      host.nextElementSibling.style.marginLeft = '46px';
+    } else if (t.dataset.cdel) {
+      if (!await ask('Delete this comment?')) return;
+      const id = Number(t.dataset.cdel);
+      try {
+        await api(`/api/comments/${id}`, { method: 'DELETE' });
+        comments = comments.filter((c) => c.id !== id && c.parentId !== id); render();
+        const p = state.posts.get(post.id); if (p) refreshPost({ ...p, comments: comments.length });
+      } catch (er) { toast(er.message, true); }
+    }
+  });
+  load();
+}
+
+function commentsBlockHTML() {
+  return `<div class="comments-head"><h3 data-ccount>Comments</h3>
+      <div class="seg"><button data-sort="top" class="active">Top</button><button data-sort="new">Newest</button></div></div>
+    ${commentFormHTML()}
+    <div data-clist></div>`;
+}
+
+function openCommentsDrawer(id) {
+  const post = state.posts.get(id);
+  if (!post) return;
+  const back = document.createElement('div'); back.className = 'drawer-back';
+  const d = document.createElement('aside'); d.className = 'drawer';
+  d.innerHTML = `<div class="drawer-head"><h3 data-ccount>Comments</h3>
+      <div style="display:flex;gap:6px;align-items:center"><div class="seg"><button data-sort="top" class="active">Top</button><button data-sort="new">Newest</button></div>
+      <button class="icon-btn" data-close aria-label="Close">${ICON.close}</button></div></div>
+    <div class="drawer-body"><div data-clist></div></div>
+    <div class="drawer-foot">${commentFormHTML()}</div>`;
+  document.body.append(back, d);
+  const close = () => { back.remove(); d.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc_);
+  back.onclick = close; d.querySelector('[data-close]').onclick = close;
+  mountComments(d, post);
+}
+
+// --- Watch page (YouTube-style) ---
+function pillsInner(p) {
+  const total = p.likes + p.dislikes;
+  return `<div>
+    <div class="pill-group">
+      <button data-like="${p.id}" class="${p.myReaction === 1 ? 'on-like' : ''}" aria-label="Like">${ICON.thumbUp} ${fmt(p.likes)}</button>
+      <button data-dislike="${p.id}" class="${p.myReaction === -1 ? 'on-dislike' : ''}" aria-label="Dislike">${ICON.thumbDown} ${fmt(p.dislikes)}</button>
+    </div>
+    <div class="ratio" title="${total ? Math.round((p.likes / total) * 100) + '% liked' : 'No ratings yet'}"><div style="width:${total ? (p.likes / total) * 100 : 50}%"></div></div>
+  </div>
+  <div class="pill-group"><button data-save="${p.id}" style="${p.saved ? 'color:#ffc93c' : ''}">${ICON.save} ${p.saved ? 'Saved' : 'Save'}</button></div>
+  <div class="pill-group"><button data-share="${p.id}">${ICON.share} Share</button></div>`;
+}
+
+async function viewPost(id) {
+  $app.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  let post;
+  try { post = cachePost((await api(`/api/posts/${id}`)).post); }
+  catch (e) { $app.innerHTML = `<div class="empty"><h2>Post not found</h2><p>It may have been deleted.</p><a class="btn primary" href="#/">Go home</a></div>`; return; }
+  const author = (await api(`/api/users/${encodeURIComponent(post.author.username)}`)).user;
+  const isMine = state.me && state.me.id === post.author.id;
+  const canManage = isMine || state.me?.isAdmin;
+  let player;
+  if (post.kind === 'video') player = `<div class="player"><video src="${esc(post.media)}" controls autoplay playsinline></video></div>`;
+  else if (post.kind === 'image') player = `<div class="player"><img src="${esc(post.media)}" alt=""></div>`;
+  else player = `<div class="player text-player" style="background:${gradFor(post.id)}">${esc(post.caption)}</div>`;
+
+  $app.innerHTML = `<div class="watch">
+    <div>
+      ${post.status === 'pending' ? `<div class="review-banner">⏳ <b>Under review.</b> ${isMine ? 'Only you can see this post until a moderator approves it.' : 'This post is hidden from the public.'} ${esc(post.modReason || '')}</div>` : ''}
+      ${player}
+      <h1>${esc(titleOf(post))}</h1>
+      <div class="watch-row">
+        <div class="grow author-line">
+          <a href="#/u/${esc(author.username)}">${avatar(author, 'md')}</a>
+          <div><a class="name" href="#/u/${esc(author.username)}">${esc(author.displayName)}</a><div class="sub" data-fcount>${fmt(author.followers)} follower${author.followers === 1 ? '' : 's'}</div></div>
+          ${followBtn(author)}
+        </div>
+        <div class="watch-row" data-pid="${post.id}" data-part="pills">${pillsInner(post)}</div>
+        <div class="menu"><button class="icon-btn" data-action="post-menu" aria-label="More">${ICON.dots}</button></div>
+      </div>
+      <div class="desc-box">
+        <div class="sub"><span data-views>${fmt(post.views)}</span> views · ${ago(post.createdAt)} · <a href="#/" data-cat-link="${esc(post.category)}" style="text-transform:capitalize">${esc(post.category)}</a></div>
+        ${post.caption ? `<div class="desc-text">${richText(post.caption)}</div>` : ''}
+        ${post.tags.length ? `<div style="margin-top:8px">${post.tags.map((t) => `<a class="hashtag" href="#/tag/${esc(t)}">#${esc(t)}</a>`).join(' ')}</div>` : ''}
+      </div>
+      <section class="comments" id="comments">${commentsBlockHTML()}</section>
+    </div>
+    <aside><h3 style="margin:0 0 12px;font-size:16px">More like this</h3><div class="side-list" id="related"></div></aside>
+  </div>`;
+
+  api(`/api/posts/${id}/view`, { method: 'POST' }).then((r) => { const v = $app.querySelector('[data-views]'); if (v) v.textContent = fmt(r.views); }).catch(() => {});
+  mountComments($app.querySelector('#comments'), post);
+
+  // related: same category first, then trending
+  const rel = $app.querySelector('#related');
+  Promise.all([
+    api(`/api/posts?${qs({ category: post.category, sort: 'trending', limit: 8 })}`),
+    api(`/api/posts?${qs({ sort: 'trending', limit: 12 })}`),
+  ]).then(([a, b]) => {
+    const seen = new Set([post.id]);
+    const list = [...a.posts, ...b.posts].filter((p) => !seen.has(p.id) && seen.add(p.id)).slice(0, 12);
+    rel.innerHTML = list.map((p) => { cachePost(p); return `<div class="mini" data-open="${p.id}">${thumbHTML(p)}
+      <div style="min-width:0"><div class="card-title">${esc(titleOf(p))}</div><div class="sub">${esc(p.author.displayName)}</div><div class="sub">${fmt(p.views)} views · ${ago(p.createdAt)}</div></div></div>`; }).join('')
+      || '<p class="sub">Nothing else yet.</p>';
+  });
+
+  $app.querySelector('[data-cat-link]')?.addEventListener('click', (e) => { e.preventDefault(); state.filters.category = post.category; location.hash = '#/'; });
+  $app.querySelector('[data-action="post-menu"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wrap = e.currentTarget.closest('.menu');
+    if (wrap.querySelector('.menu-pop')) return wrap.querySelector('.menu-pop').remove();
+    wrap.insertAdjacentHTML('beforeend', `<div class="menu-pop">
+      ${isMine ? '<button data-edit>Edit caption</button>' : ''}
+      ${!isMine ? '<button data-rep>⚑ Report post</button>' : ''}
+      ${canManage ? '<button class="danger" data-del>Delete post</button>' : ''}</div>`);
+    wrap.querySelector('[data-rep]')?.addEventListener('click', () => { wrap.querySelector('.menu-pop').remove(); openReport('post', post.id); });
+    if (!canManage) return;
+    wrap.querySelector('[data-del]').onclick = async () => {
+      if (!await ask('Delete this post forever?')) return;
+      try { await api(`/api/posts/${post.id}`, { method: 'DELETE' }); toast('Post deleted'); location.hash = isMine ? `#/u/${post.author.username}` : '#/'; }
+      catch (er) { toast(er.message, true); }
+    };
+    if (wrap.querySelector('[data-edit]')) wrap.querySelector('[data-edit]').onclick = () => {
+      const m = openModal(`<h2>Edit post</h2><form class="form" id="editForm"><label>Caption<textarea name="caption" maxlength="2200" rows="6">${esc(post.caption)}</textarea></label>
+        <label>Category<select name="category">${state.categories.map((c) => `<option ${c === post.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <button class="btn primary">Save</button></form>`);
+      m.querySelector('#editForm').onsubmit = async (ev) => {
+        ev.preventDefault();
+        try { await api(`/api/posts/${post.id}`, { method: 'PATCH', body: Object.fromEntries(new FormData(ev.target)) }); closeModal(); toast('Saved'); route(); }
+        catch (er) { toast(er.message, true); }
+      };
+    };
+  });
+  cleanupView = () => $app.querySelectorAll('video').forEach((v) => v.pause());
+}
+
+// --- Profile ---
+async function viewProfile(username) {
+  $app.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  let u;
+  try { u = (await api(`/api/users/${encodeURIComponent(username)}`)).user; }
+  catch { $app.innerHTML = `<div class="empty"><h2>User not found</h2><a class="btn primary" href="#/">Go home</a></div>`; return; }
+  let tab = 'posts', kind = '';
+  $app.innerHTML = `
+    <section class="profile-head">
+      ${avatar(u, 'lg')}
+      <div class="info">
+        <h1>${esc(u.displayName)}</h1>
+        <div class="handle">@${esc(u.username)} · joined ${new Date(u.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</div>
+        <div class="profile-stats">
+          <div><b>${fmt(u.posts)}</b>posts</div>
+          <button data-list="followers"><b data-fcount>${fmt(u.followers)}</b>followers</button>
+          <button data-list="following"><b>${fmt(u.following)}</b>following</button>
+          <div><b>${fmt(u.likes)}</b>likes</div>
+        </div>
+        ${u.bio ? `<div class="profile-bio">${richText(u.bio)}</div>` : ''}
+        ${u.isMe ? `<button class="btn" data-action="edit-profile">Edit profile</button> <button class="btn primary" data-action="upload">Create post</button>`
+          : `<button class="btn ${u.isFollowing ? 'following' : 'primary'}" data-follow="${esc(u.username)}" data-profile-follow>${u.isFollowing ? 'Following' : 'Follow'}</button>`}
+      </div>
+    </section>
+    <div class="tabs">
+      <button data-tab="posts" class="active">Posts</button>
+      <button data-tab="top">Most liked</button>
+      ${u.isMe ? '<button data-tab="saved">Saved</button>' : ''}
+      <div style="margin-left:auto;align-self:center" class="seg" id="pkind">${KINDS.map(([v, l]) => `<button data-kind="${v}" class="${v === '' ? 'active' : ''}">${l}</button>`).join('')}</div>
+    </div>
+    <div id="pgrid-wrap"></div>`;
+  let stop = () => {};
+  const load = () => {
+    stop();
+    const wrap = $app.querySelector('#pgrid-wrap');
+    wrap.innerHTML = '<section class="grid" id="pgrid"></section>';
+    const grid = wrap.querySelector('#pgrid');
+    const params = tab === 'saved' ? { saved: 1, sort: 'latest' } : { user: u.username, sort: tab === 'top' ? 'top' : 'latest' };
+    stop = infiniteList(grid, (offset) => `/api/posts?${qs({ ...params, kind, offset, limit: 12 })}`, cardHTML, () => {
+      grid.outerHTML = `<div class="empty"><h2>${tab === 'saved' ? 'No saved posts' : 'No posts yet'}</h2>${u.isMe && tab !== 'saved' ? '<p>Share your first video or photo.</p><button class="btn primary" data-action="upload">Create a post</button>' : ''}</div>`;
+    });
+  };
+  $app.querySelector('.tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); const k = e.target.closest('[data-kind]');
+    if (t) { tab = t.dataset.tab; $app.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b === t)); load(); }
+    if (k) { kind = k.dataset.kind; $app.querySelectorAll('#pkind [data-kind]').forEach((b) => b.classList.toggle('active', b === k)); load(); }
+  });
+  $app.querySelectorAll('[data-list]').forEach((b) => b.onclick = () => openUserList(u.username, b.dataset.list));
+  load();
+  cleanupView = () => stop();
+}
+
+// --- Moderation dashboard (admins) ---
+const REASON_LABEL = Object.fromEntries(REPORT_REASONS);
+async function viewMod() {
+  if (!state.me?.isAdmin) { $app.innerHTML = `<div class="empty"><h2>Moderators only</h2><a class="btn primary" href="#/">Go home</a></div>`; return; }
+  $app.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  let q;
+  try { q = await api('/api/mod/queue'); } catch (e) { $app.innerHTML = `<div class="empty"><h2>${esc(e.message)}</h2></div>`; return; }
+  const reportsLine = (r) => r.length ? r.map((x) => `${esc(REASON_LABEL[x.reason] || x.reason)} ×${x.n}`).join(' · ') : '';
+  const media = (p) => p.kind === 'video' ? `<video src="${esc(p.media)}" controls muted preload="metadata"></video>`
+    : p.kind === 'image' ? `<img src="${esc(p.media)}" alt="">` : `<div class="mod-text" style="background:${gradFor(p.id)}">${esc(p.caption)}</div>`;
+  $app.innerHTML = `
+    <div class="filter-head" style="margin-bottom:6px"><h1>🛡️ Moderation</h1></div>
+    <p class="sub" style="margin-top:0">Posts flagged by the automatic safety check or reported by people. Pending posts are hidden from everyone except their creator until you approve them.</p>
+    <h3>Posts <span class="sub">(${q.posts.length})</span></h3>
+    ${q.posts.length ? `<div class="mod-grid">${q.posts.map((p) => `
+      <div class="mod-item" data-mpost="${p.id}">
+        <div class="mod-media">${media(p)}</div>
+        <div class="mod-body">
+          <div><span class="status-pill ${p.status}">${p.status === 'pending' ? 'Hidden · pending' : 'Live · reported'}</span></div>
+          <div class="card-title" style="margin-top:6px">${esc(titleOf(p))}</div>
+          <div class="sub">by <a href="#/u/${esc(p.author.username)}">@${esc(p.author.username)}</a> · ${ago(p.createdAt)}</div>
+          ${p.modReason ? `<div class="sub">ℹ️ ${esc(p.modReason)}</div>` : ''}
+          ${p.reports.length ? `<div class="sub">⚑ ${reportsLine(p.reports)}</div>` : ''}
+          <div class="mod-actions">
+            <button class="btn small" data-mod="approve">✓ Approve</button>
+            <button class="btn small danger-btn" data-mod="remove">Remove</button>
+            <button class="btn small ghost" data-ban="${esc(p.author.username)}">Ban user</button>
+          </div>
+        </div>
+      </div>`).join('')}</div>` : '<p class="sub">Nothing to review. 🎉</p>'}
+    <h3 style="margin-top:28px">Comments <span class="sub">(${q.comments.length})</span></h3>
+    ${q.comments.length ? q.comments.map((c) => `
+      <div class="mod-comment" data-mcomment="${c.id}">
+        <div style="flex:1;min-width:0">
+          <div class="sub"><a href="#/u/${esc(c.author.username)}">@${esc(c.author.username)}</a> on <a href="#/p/${c.postId}">post</a> · ${c.hidden ? 'hidden' : 'visible'} · ⚑ ${reportsLine(c.reports)}</div>
+          <div style="white-space:pre-wrap;word-break:break-word">${esc(c.body)}</div>
+        </div>
+        <div class="mod-actions" style="margin:0">
+          <button class="btn small" data-cmod="keep">Keep</button>
+          <button class="btn small danger-btn" data-cmod="remove">Remove</button>
+          <button class="btn small ghost" data-ban="${esc(c.author.username)}">Ban</button>
+        </div>
+      </div>`).join('') : '<p class="sub">No reported comments.</p>'}`;
+  $app.onclick = async (e) => {
+    const b = e.target.closest('[data-mod],[data-cmod],[data-ban]'); if (!b || !$app.contains(b)) return;
+    try {
+      if (b.dataset.mod) {
+        if (b.dataset.mod === 'remove' && !await ask('Remove this post permanently?', 'Remove')) return;
+        await api(`/api/mod/posts/${b.closest('[data-mpost]').dataset.mpost}`, { method: 'POST', body: { action: b.dataset.mod } });
+        b.closest('[data-mpost]').remove(); toast(b.dataset.mod === 'approve' ? 'Approved' : 'Removed');
+      } else if (b.dataset.cmod) {
+        await api(`/api/mod/comments/${b.closest('[data-mcomment]').dataset.mcomment}`, { method: 'POST', body: { action: b.dataset.cmod } });
+        b.closest('[data-mcomment]').remove(); toast(b.dataset.cmod === 'keep' ? 'Kept' : 'Removed');
+      } else if (b.dataset.ban) {
+        if (!await ask(`Ban @${b.dataset.ban}? Their account is suspended and all their posts and comments are taken down.`)) return;
+        await api(`/api/mod/users/${encodeURIComponent(b.dataset.ban)}`, { method: 'POST', body: { action: 'ban' } });
+        toast(`@${b.dataset.ban} banned`); viewMod();
+      }
+    } catch (er) { toast(er.message, true); }
+  };
+  cleanupView = () => { $app.onclick = null; };
+}
+
+function viewRules() {
+  $app.innerHTML = `<div class="rules">
+    <h1>Community rules</h1>
+    <p class="sub">VBrowse is for everyone. Breaking these rules gets content removed and accounts banned.</p>
+    <ol>
+      <li><b>No nudity or sexual content.</b> This includes explicit images, videos, links and sexual comments. Uploads are scanned automatically and blocked if they contain nudity.</li>
+      <li><b>No hate or harassment.</b> No slurs, threats, bullying, or attacks on people for who they are.</li>
+      <li><b>No violence or gore</b>, and nothing that encourages self-harm or dangerous acts.</li>
+      <li><b>No spam or scams.</b> No fake giveaways, phishing, or repetitive self-promotion.</li>
+      <li><b>Only post what you have the right to share.</b></li>
+    </ol>
+    <h3>How moderation works</h3>
+    <ul>
+      <li>🤖 Every photo and video is checked by an automatic nudity detector before it goes live. Clear violations are rejected; borderline ones are held for a human moderator.</li>
+      <li>🚫 Captions, comments, names and bios are filtered for explicit words and slurs.</li>
+      <li>⚑ Anyone can report a post or comment. After a few reports it is hidden until a moderator reviews it.</li>
+      <li>🛡️ Moderators can approve, remove, and ban accounts.</li>
+    </ul>
+  </div>`;
+}
+
+// ---------------- router ----------------
+function setNav(name) {
+  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name));
+}
+function route() {
+  cleanupView(); cleanupView = () => {};
+  document.querySelectorAll('.drawer, .drawer-back').forEach((x) => x.remove());
+  $app.classList.remove('fullbleed');
+  const h = location.hash.replace(/^#/, '') || '/';
+  const parts = h.split('/').filter(Boolean).map(decodeURIComponent);
+  window.scrollTo(0, 0);
+  if (!parts.length) { setNav('home'); return viewHome({ mode: 'home' }); }
+  switch (parts[0]) {
+    case 'scroll': setNav('scroll'); return viewScroll();
+    case 'following': setNav('following'); return viewHome({ mode: 'following' });
+    case 'saved': setNav('saved'); return viewHome({ mode: 'saved' });
+    case 'tag': setNav(''); return viewHome({ mode: 'tag', tag: parts[1] || '' });
+    case 'p': setNav(''); return viewPost(Number(parts[1]));
+    case 'mod': setNav(''); return viewMod();
+    case 'rules': setNav(''); return viewRules();
+    case 'u': setNav(state.me && parts[1] === state.me.username ? 'me' : ''); return viewProfile(parts[1]);
+    case 'me':
+      if (!state.me) { setNav('me'); $app.innerHTML = `<div class="empty"><h2>Your profile</h2><p>Sign up to post, follow creators and build your page.</p><button class="btn primary" data-action="signup">Sign up</button> <button class="btn" data-action="login">Log in</button></div>`; return; }
+      location.replace(`#/u/${state.me.username}`); return;
+    default: setNav(''); $app.innerHTML = `<div class="empty"><h2>Page not found</h2><a class="btn primary" href="#/">Go home</a></div>`;
+  }
+}
+
+// ---------------- global events ----------------
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-action]');
+  if (a) {
+    const act = a.dataset.action;
+    if (act === 'login') { e.preventDefault(); return openAuth('login'); }
+    if (act === 'signup') { e.preventDefault(); return openAuth('signup'); }
+    if (act === 'upload') { e.preventDefault(); return openUpload(); }
+    if (act === 'close-modal') return closeModal();
+    if (act === 'close-modal-nav') return closeModal();
+    if (act === 'usermenu') { e.stopPropagation(); return openUserMenu(a); }
+    if (act === 'edit-profile') { document.querySelector('.menu-pop')?.remove(); return openEditProfile(); }
+    if (act === 'clear-search') { state.filters.q = ''; document.getElementById('searchInput').value = ''; return route(); }
+    if (act === 'logout') {
+      api('/api/logout', { method: 'POST' }).then(() => { state.me = null; state.posts.clear(); renderTop(); toast('Logged out'); location.hash = '#/'; route(); });
+      return;
+    }
+  }
+  const t = e.target.closest('[data-like],[data-dislike],[data-save],[data-share],[data-comments],[data-follow]');
+  if (t) {
+    e.preventDefault(); e.stopPropagation();
+    if (t.dataset.like) return toggleLike(Number(t.dataset.like));
+    if (t.dataset.dislike) return toggleDislike(Number(t.dataset.dislike));
+    if (t.dataset.save) return toggleSave(Number(t.dataset.save));
+    if (t.dataset.share) return sharePost(Number(t.dataset.share));
+    if (t.dataset.comments) return openCommentsDrawer(Number(t.dataset.comments));
+    if (t.dataset.follow) {
+      return toggleFollow(t.dataset.follow).then((r) => {
+        if (!r) return;
+        document.querySelectorAll('[data-fcount]').forEach((el) => {
+          el.textContent = el.tagName === 'B' ? fmt(r.followers) : `${fmt(r.followers)} follower${r.followers === 1 ? '' : 's'}`;
+        });
+        toast(r.isFollowing ? `Following @${t.dataset.follow}` : `Unfollowed @${t.dataset.follow}`);
+      });
+    }
+  }
+  const rp = e.target.closest('[data-report-post],[data-report-comment]');
+  if (rp) {
+    e.preventDefault(); e.stopPropagation();
+    return rp.dataset.reportPost ? openReport('post', Number(rp.dataset.reportPost)) : openReport('comment', Number(rp.dataset.reportComment));
+  }
+  if (e.target.closest('[data-stop]')) return;
+  const open = e.target.closest('[data-open]');
+  if (open) location.hash = `#/p/${open.dataset.open}`;
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $modal.innerHTML) closeModal(); });
+
+document.getElementById('searchForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  let q = document.getElementById('searchInput').value.trim();
+  if (q.startsWith('#') && /^#[\w]+$/.test(q)) { location.hash = `#/tag/${q.slice(1).toLowerCase()}`; return; }
+  if (q.startsWith('@') && /^@[\w.]+$/.test(q)) { location.hash = `#/u/${q.slice(1).toLowerCase()}`; return; }
+  state.filters.q = q;
+  if (location.hash === '#/' || location.hash === '') route(); else location.hash = '#/';
+});
+
+window.addEventListener('hashchange', route);
+
+// ---------------- boot ----------------
+(async () => {
+  try { const r = await api('/api/me'); state.me = r.user; state.categories = r.categories; state.hosted = r.hosted || null; } catch {}
+  if (HOSTED) document.body.classList.add('hosted');
+  renderTop();
+  if (HOSTED && !state.me && state.hosted && state.hosted.canWrite && !state.hosted.hasProfile) setTimeout(() => openAuth('signup', 'Pick a username so people can find you.'), 400);
+  route();
+})();
+})();
+
+</script>
